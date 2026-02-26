@@ -52,6 +52,71 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Database schema check endpoint
+app.get('/api/health/schema', async (req, res) => {
+  try {
+    const { getDatabase } = await import('./db/connection.js');
+    const db = await getDatabase();
+
+    // Get all tables
+    const tablesResult = db.exec("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name");
+    const tables = tablesResult.length > 0 ? tablesResult[0].values.map(row => row[0]) : [];
+
+    // Required tables
+    const requiredTables = [
+      'projects', 'floors', 'rooms', 'walls', 'assets', 'asset_tags',
+      'furniture_placements', 'lights', 'windows', 'doors', 'edit_history',
+      'ai_generations', 'user_settings', 'material_presets'
+    ];
+
+    // Check which tables exist
+    const missingTables = requiredTables.filter(table => !tables.includes(table));
+    const allTablesExist = missingTables.length === 0;
+
+    // Get table details for each required table
+    const tableDetails = {};
+    requiredTables.forEach(tableName => {
+      if (tables.includes(tableName)) {
+        const schemaResult = db.exec(`PRAGMA table_info(${tableName})`);
+        if (schemaResult.length > 0) {
+          const columns = schemaResult[0].columns;
+          const rows = schemaResult[0].values;
+          tableDetails[tableName] = rows.map(row => {
+            const col = {};
+            columns.forEach((colName, idx) => {
+              col[colName] = row[idx];
+            });
+            return col;
+          });
+        }
+      }
+    });
+
+    // Check foreign keys
+    const fkResult = db.exec('PRAGMA foreign_keys');
+    const foreignKeysEnabled = fkResult.length > 0 && fkResult[0].values[0][0] === 1;
+
+    res.json({
+      status: allTablesExist ? 'ok' : 'incomplete',
+      tables: {
+        found: tables,
+        required: requiredTables,
+        missing: missingTables,
+        count: tables.length
+      },
+      foreignKeysEnabled,
+      tableDetails,
+      allTablesExist
+    });
+  } catch (error) {
+    console.error('Error checking schema:', error);
+    res.status(500).json({
+      status: 'error',
+      error: error.message
+    });
+  }
+});
+
 // API routes
 app.use('/api/projects', projectsRouter);
 
