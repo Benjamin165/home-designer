@@ -53,6 +53,9 @@ function Editor() {
   const [roomHeight, setRoomHeight] = useState('2.8');
   const [dimensionsError, setDimensionsError] = useState<string | null>(null);
   const [dimensionsLoading, setDimensionsLoading] = useState(false);
+  const [widthError, setWidthError] = useState<string | null>(null);
+  const [lengthError, setLengthError] = useState<string | null>(null);
+  const [heightError, setHeightError] = useState<string | null>(null);
 
   // Zustand store
   const {
@@ -292,35 +295,93 @@ function Editor() {
     setRoomLength('4.0');
     setRoomHeight('2.8');
     setDimensionsError(null);
+    setWidthError(null);
+    setLengthError(null);
+    setHeightError(null);
+  };
+
+  const validateWidth = (value: string) => {
+    if (!value || value.trim() === '') {
+      setWidthError('Width is required');
+      return false;
+    }
+    const num = parseFloat(value);
+    if (isNaN(num)) {
+      setWidthError('Please enter a valid number');
+      return false;
+    }
+    if (num <= 0) {
+      setWidthError('Width must be a positive number');
+      return false;
+    }
+    if (num < 0.5) {
+      setWidthError('Minimum width is 0.5m');
+      return false;
+    }
+    setWidthError(null);
+    return true;
+  };
+
+  const validateLength = (value: string) => {
+    if (!value || value.trim() === '') {
+      setLengthError('Length is required');
+      return false;
+    }
+    const num = parseFloat(value);
+    if (isNaN(num)) {
+      setLengthError('Please enter a valid number');
+      return false;
+    }
+    if (num <= 0) {
+      setLengthError('Length must be a positive number');
+      return false;
+    }
+    if (num < 0.5) {
+      setLengthError('Minimum length is 0.5m');
+      return false;
+    }
+    setLengthError(null);
+    return true;
+  };
+
+  const validateHeight = (value: string) => {
+    if (!value || value.trim() === '') {
+      setHeightError('Height is required');
+      return false;
+    }
+    const num = parseFloat(value);
+    if (isNaN(num)) {
+      setHeightError('Please enter a valid number');
+      return false;
+    }
+    if (num <= 0) {
+      setHeightError('Height must be a positive number');
+      return false;
+    }
+    if (num < 2.0) {
+      setHeightError('Minimum ceiling height is 2.0m');
+      return false;
+    }
+    setHeightError(null);
+    return true;
   };
 
   const handleCreateRoomByDimensions = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate inputs
+    // Validate all fields
+    const widthValid = validateWidth(roomWidth);
+    const lengthValid = validateLength(roomLength);
+    const heightValid = validateHeight(roomHeight);
+
+    if (!widthValid || !lengthValid || !heightValid) {
+      return;
+    }
+
+    // Parse validated values
     const width = parseFloat(roomWidth);
     const length = parseFloat(roomLength);
     const height = parseFloat(roomHeight);
-
-    if (isNaN(width) || width <= 0) {
-      setDimensionsError('Width must be a positive number');
-      return;
-    }
-
-    if (isNaN(length) || length <= 0) {
-      setDimensionsError('Length must be a positive number');
-      return;
-    }
-
-    if (isNaN(height) || height <= 0) {
-      setDimensionsError('Height must be a positive number');
-      return;
-    }
-
-    if (width < 0.5 || length < 0.5) {
-      setDimensionsError('Minimum room size is 0.5m × 0.5m');
-      return;
-    }
 
     if (!currentFloorId) {
       setDimensionsError('No floor selected');
@@ -673,10 +734,18 @@ function Editor() {
                   min="0.5"
                   value={roomWidth}
                   onChange={(e) => setRoomWidth(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onBlur={(e) => validateWidth(e.target.value)}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:border-transparent ${
+                    widthError
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-600 focus:ring-blue-500'
+                  }`}
                   placeholder="5.0"
                   autoFocus
                 />
+                {widthError && (
+                  <p className="mt-1 text-sm text-red-400">{widthError}</p>
+                )}
               </div>
 
               <div className="mb-4">
@@ -690,9 +759,17 @@ function Editor() {
                   min="0.5"
                   value={roomLength}
                   onChange={(e) => setRoomLength(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onBlur={(e) => validateLength(e.target.value)}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:border-transparent ${
+                    lengthError
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-600 focus:ring-blue-500'
+                  }`}
                   placeholder="4.0"
                 />
+                {lengthError && (
+                  <p className="mt-1 text-sm text-red-400">{lengthError}</p>
+                )}
               </div>
 
               <div className="mb-6">
@@ -706,9 +783,17 @@ function Editor() {
                   min="2.0"
                   value={roomHeight}
                   onChange={(e) => setRoomHeight(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onBlur={(e) => validateHeight(e.target.value)}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:border-transparent ${
+                    heightError
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-600 focus:ring-blue-500'
+                  }`}
                   placeholder="2.8"
                 />
+                {heightError && (
+                  <p className="mt-1 text-sm text-red-400">{heightError}</p>
+                )}
               </div>
 
               {dimensionsError && (

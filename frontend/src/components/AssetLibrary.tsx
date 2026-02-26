@@ -34,7 +34,7 @@ export default function AssetLibrary() {
 
   useEffect(() => {
     loadAssets();
-  }, [selectedCategory]);
+  }, [selectedCategory, searchQuery]);
 
   const loadAssets = async () => {
     try {
@@ -42,6 +42,7 @@ export default function AssetLibrary() {
       setError(null);
       const data = await assetsApi.getAll({
         category: selectedCategory || undefined,
+        search: searchQuery || undefined,
       });
       setAssets(data.assets || []);
     } catch (err) {
@@ -65,10 +66,8 @@ export default function AssetLibrary() {
   // Get unique categories
   const categories = ['All', ...new Set(assets.map((a) => a.category))];
 
-  // Filter assets by category and search query
-  const filteredAssets = assets
-    .filter((a) => !selectedCategory || a.category === selectedCategory)
-    .filter((a) => !searchQuery || a.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  // Assets are already filtered by the API (category and search)
+  const filteredAssets = assets;
 
   return (
     <div className={`h-full bg-gray-800 border-r border-gray-700 flex flex-col transition-all duration-300 ${
