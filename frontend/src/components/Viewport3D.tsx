@@ -725,7 +725,45 @@ function RoomMesh({ room }: { room: any }) {
       {/* Floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
         <planeGeometry args={[width, depth]} />
-        <meshStandardMaterial color={room.floor_color || "#d1d5db"} />
+        <meshStandardMaterial
+          color={(() => {
+            // Use floor_material to determine appearance
+            const material = room.floor_material || 'hardwood';
+            switch (material) {
+              case 'hardwood':
+                return '#8B4513'; // Brown wood color
+              case 'tile':
+                return '#E8E8E8'; // Light gray tile
+              case 'carpet':
+                return '#A0522D'; // Sienna carpet
+              case 'marble':
+                return '#F5F5F5'; // White marble
+              case 'laminate':
+                return '#D2691E'; // Chocolate laminate
+              case 'concrete':
+                return '#808080'; // Gray concrete
+              default:
+                return room.floor_color || '#d1d5db';
+            }
+          })()}
+          roughness={(() => {
+            const material = room.floor_material || 'hardwood';
+            switch (material) {
+              case 'marble':
+              case 'tile':
+                return 0.2; // Smooth, shiny
+              case 'concrete':
+                return 0.8; // Rough
+              case 'carpet':
+                return 0.9; // Very rough
+              case 'hardwood':
+              case 'laminate':
+                return 0.4; // Semi-gloss
+              default:
+                return 0.5;
+            }
+          })()}
+        />
       </mesh>
 
       {/* Ceiling */}

@@ -240,9 +240,46 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
                 </div>
               </div>
 
+              {/* Floor Material Selector */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Floor Material</label>
+                <select
+                  value={selectedRoom.floor_material || 'hardwood'}
+                  onChange={async (e) => {
+                    try {
+                      const newMaterial = e.target.value;
+                      await roomsApi.update(selectedRoom.id, {
+                        floor_material: newMaterial,
+                      });
+
+                      // Update local state
+                      const updatedRooms = rooms.map((r) =>
+                        r.id === selectedRoom.id ? { ...r, floor_material: newMaterial } : r
+                      );
+                      setRooms(updatedRooms);
+
+                      toast.success('Floor material updated', {
+                        description: `Changed to ${newMaterial}`,
+                      });
+                    } catch (error) {
+                      console.error('Error updating floor material:', error);
+                      toast.error('Failed to update floor material');
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500 transition-colors"
+                >
+                  <option value="hardwood">Hardwood</option>
+                  <option value="tile">Tile</option>
+                  <option value="carpet">Carpet</option>
+                  <option value="marble">Marble</option>
+                  <option value="laminate">Laminate</option>
+                  <option value="concrete">Concrete</option>
+                </select>
+              </div>
+
               {/* Colors */}
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Materials</label>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Colors</label>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-300 text-sm">Floor</span>
