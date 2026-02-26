@@ -23,6 +23,8 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
   const [isNarrowScreen, setIsNarrowScreen] = useState(false);
   const [furnitureRotation, setFurnitureRotation] = useState<string>('0');
   const [furnitureScale, setFurnitureScale] = useState<string>('1.0');
+  const [lightIntensity, setLightIntensity] = useState<string>('2.0');
+  const [lightColor, setLightColor] = useState<string>('#fff8e1');
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
   const currentFloor = floors.find((f) => f.id === currentFloorId);
@@ -88,6 +90,10 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
       // Initialize scale (uniform scale - we use scale_x as the primary value)
       const scale = selectedFurniture.scale_x || 1.0;
       setFurnitureScale(scale.toFixed(2));
+
+      // Initialize light properties
+      setLightIntensity(String(selectedFurniture.light_intensity || 2.0));
+      setLightColor(selectedFurniture.light_color || '#fff8e1');
     }
   }, [selectedFurniture?.id]);
 
@@ -228,6 +234,73 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
     } catch (error) {
       console.error('Error scaling furniture:', error);
       toast.error('Failed to scale furniture');
+    }
+  };
+
+  // Handle light intensity change
+  const handleLightIntensityChange = (value: string) => {
+    setLightIntensity(value);
+  };
+
+  // Handle light intensity save
+  const handleLightIntensitySave = async () => {
+    if (!selectedFurniture) return;
+
+    const intensityValue = parseFloat(lightIntensity);
+    if (isNaN(intensityValue)) {
+      toast.error('Please enter a valid intensity value');
+      return;
+    }
+
+    if (intensityValue < 0) {
+      toast.error('Intensity cannot be negative');
+      return;
+    }
+
+    if (intensityValue > 10) {
+      toast.error('Intensity cannot exceed 10');
+      return;
+    }
+
+    try {
+      await furnitureApi.update(selectedFurniture.id, {
+        light_intensity: intensityValue,
+      });
+
+      // Update local state
+      updateFurniturePlacement(selectedFurniture.id, {
+        light_intensity: intensityValue,
+      });
+
+      toast.success('Light intensity updated', {
+        description: `Set to ${intensityValue}`
+      });
+    } catch (error) {
+      console.error('Error updating light intensity:', error);
+      toast.error('Failed to update light intensity');
+    }
+  };
+
+  // Handle light color change
+  const handleLightColorChange = async (color: string) => {
+    if (!selectedFurniture) return;
+
+    setLightColor(color);
+
+    try {
+      await furnitureApi.update(selectedFurniture.id, {
+        light_color: color,
+      });
+
+      // Update local state
+      updateFurniturePlacement(selectedFurniture.id, {
+        light_color: color,
+      });
+
+      toast.success('Light color updated');
+    } catch (error) {
+      console.error('Error updating light color:', error);
+      toast.error('Failed to update light color');
     }
   };
 
@@ -610,6 +683,85 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
                   </button>
                 </div>
               </div>
+
+              {/* Light Properties (Feature #47) - Only show for Lighting category */}
+              {selectedFurniture.category === 'Lighting' && (
+                <div className="border-t border-gray-700 pt-4">
+                  <label className="block text-sm font-medium text-gray-400 mb-3">
+                    💡 Light Properties
+                  </label>
+
+                  {/* Light Intensity */}
+                  <div className="mb-4">
+                    <label className="block text-xs font-medium text-gray-400 mb-2">Intensity</label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="10"
+                        value={lightIntensity}
+                        onChange={(e) => handleLightIntensityChange(e.target.value)}
+                        onBlur={handleLightIntensitySave}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleLightIntensitySave();
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 bg-gray-700/50 border border-gray-600 rounded text-white font-mono focus:outline-none focus:border-blue-500 transition-colors"
+                        placeholder="2.0"
+                      />
+                      <span className="text-gray-400 text-xs">0-10</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Higher values create brighter light</p>
+                  </div>
+
+                  {/* Light Color */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-2">Color</label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="color"
+                        value={lightColor}
+                        onChange={(e) => handleLightColorChange(e.target.value)}
+                        className="h-10 w-20 rounded cursor-pointer bg-gray-700 border border-gray-600"
+                      />
+                      <input
+                        type="text"
+                        value={lightColor}
+                        onChange={(e) => handleLightColorChange(e.target.value)}
+                        className="flex-1 px-3 py-2 bg-gray-700/50 border border-gray-600 rounded text-white font-mono text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                        placeholder="#fff8e1"
+                        maxLength={7}
+                      />
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => handleLightColorChange('#ffffff')}
+                        className="flex-1 px-2 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
+                        title="Cool White"
+                      >
+                        Cool White
+                      </button>
+                      <button
+                        onClick={() => handleLightColorChange('#fff8e1')}
+                        className="flex-1 px-2 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
+                        title="Warm White"
+                      >
+                        Warm White
+                      </button>
+                      <button
+                        onClick={() => handleLightColorChange('#ffd700')}
+                        className="flex-1 px-2 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
+                        title="Warm Yellow"
+                      >
+                        Yellow
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Deselect Button */}
               <div className="pt-4 border-t border-gray-700">

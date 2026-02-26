@@ -1418,14 +1418,14 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
         />
       </Box>
 
-      {/* Add actual light source if this is a lighting asset */}
+      {/* Add actual light source if this is a lighting asset (Feature #46, #47) */}
       {isLightingAsset && (
         <pointLight
           position={[0, height / 2, 0]}
-          intensity={2}
+          intensity={furniture.light_intensity !== undefined ? furniture.light_intensity : 2.0}
           distance={10}
           decay={2}
-          color="#fff5e6"
+          color={furniture.light_color || '#fff8e1'}
           castShadow
         />
       )}
