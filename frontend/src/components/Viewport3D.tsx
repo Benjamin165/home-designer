@@ -608,7 +608,7 @@ export default function Viewport3D() {
       {/* Day/Night toggle button */}
       <button
         onClick={() => setLightingMode(lightingMode === 'day' ? 'night' : 'day')}
-        className="absolute top-4 right-4 p-3 bg-gray-800/80 backdrop-blur-sm rounded-lg text-white hover:bg-gray-700/80 transition-all shadow-lg"
+        className="absolute bottom-4 right-4 p-3 bg-gray-800/80 backdrop-blur-sm rounded-lg text-white hover:bg-gray-700/80 transition-all shadow-lg z-20"
         title={lightingMode === 'day' ? 'Switch to Night Mode' : 'Switch to Day Mode'}
       >
         {lightingMode === 'day' ? (

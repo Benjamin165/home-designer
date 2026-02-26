@@ -1118,3 +1118,69 @@ Note: Core implementation was done by previous agent in commit 58fa4ad
       This session verified functionality and marked feature as passing
 
 Next: Continue with features #15 and #16
+
+====================
+Session 17: Feature #16 - Context Menu (IN PROGRESS)
+Date: 2026-02-26
+====================
+
+Feature #16: Context menu appears on right-click in 3D viewport - IN PROGRESS
+
+Status: Partially implemented, needs completion
+
+Work completed:
+- Created ContextMenu component (ContextMenu.tsx)
+- Component supports:
+  * Customizable menu items with icons
+  * Click-outside to close
+  * Proper positioning at cursor location
+  * Dividers between menu sections
+  * Styled for dark theme
+
+Work remaining:
+1. Integrate context menu with Viewport3D component:
+   - Add context menu state (visible, position, type)
+   - Handle onContextMenu event on Canvas
+   - Detect what was clicked (empty space vs furniture)
+   
+2. Implement menu items for empty space:
+   - "Add Furniture" action
+   - "View Settings" action
+   - Any other relevant global actions
+   
+3. Implement menu items for furniture objects:
+   - "Delete" action (remove furniture placement)
+   - "Duplicate" action (copy furniture)
+   - "Properties" action (open properties panel)
+   
+4. Add right-click detection for furniture meshes:
+   - Prevent default context menu
+   - Pass clicked object data to context menu
+   
+5. Test end-to-end with browser automation:
+   - Right-click on empty space
+   - Right-click on furniture object
+   - Verify correct menus appear
+   - Test all menu actions
+
+Technical notes:
+- ContextMenu component ready at frontend/src/components/ContextMenu.tsx
+- Uses fixed positioning for placement at cursor
+- Handles click-outside and ESC key to close
+- Styled with gray-800 background for dark theme consistency
+
+Next steps for completion:
+1. Add contextMenu state to Viewport3D
+2. Add onContextMenu handler to Canvas
+3. Implement raycasting to detect clicked objects
+4. Wire up menu actions to actual functionality
+5. Test and verify all requirements
+
+Estimated work remaining: 1-2 hours
+
+Files created:
+- frontend/src/components/ContextMenu.tsx (complete)
+
+Files to modify:
+- frontend/src/components/Viewport3D.tsx (needs context menu integration)
+
