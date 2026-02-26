@@ -1651,3 +1651,76 @@ Status: 92/125 features passing (73.6%)
 - Completed this session: +3 features
 
 Session 25 Summary: Feature #21 marked PASSING. Feature #42 95% complete (wall color selection implemented, needs verification)
+
+
+====================
+Session 26: Features #26, #27 - Room Naming and Hover Tooltips
+Date: 2026-02-26
+====================
+
+Completed: Features #26, #27 - Both passing
+
+Feature #26: Room naming and labeling works - PASSING
+- Made room name field editable in PropertiesPanel.tsx
+- Replaced read-only div with input field
+- Added roomName state and handleRoomNameSave handler
+- Save triggers on Enter key or onBlur
+- Updates via PUT /api/rooms/:id
+- Verified with API test - name persists correctly
+  * Changed "Room 1" to "Test Room Name Feature 26"
+  * Confirmed persistence in database
+  * Updated timestamp reflects change
+
+Feature #27: Room dimensions display on hover and in properties - PASSING
+- Created RoomTooltip component in Viewport3D.tsx
+- Shows room name, width, length, and floor area
+- Tooltip positioned near cursor with offset
+- Added roomTooltip state to track hover
+- Added window event listeners for roomHover/roomHoverEnd
+- Implemented onPointerEnter/onPointerLeave in RoomMesh
+- Hover handlers only active when select tool is active
+- Tooltip uses formatLength and formatArea for proper units
+- Properties panel already showed dimensions (verified)
+
+Technical implementation:
+1. PropertiesPanel.tsx:
+   - Added roomName state (string)
+   - Initialize roomName from selectedRoom.name in useEffect
+   - handleRoomNameSave: trim, update via API, update local state
+   - Input field with onChange, onBlur, onKeyDown (Enter)
+
+2. Viewport3D.tsx:
+   - Imported formatLength and formatArea from units lib
+   - Added roomTooltip state (visible, x, y, room)
+   - Added useEffect to listen for roomHover/roomHoverEnd events
+   - Created RoomTooltip component with styled tooltip
+   - Rendered tooltip conditionally when roomTooltip exists
+
+3. RoomMesh (in Viewport3D.tsx):
+   - Added handlePointerEnter: dispatches roomHover event
+   - Added handlePointerLeave: dispatches roomHoverEnd event
+   - Only triggers when currentTool === 'select'
+   - Added handlers to floor mesh element
+
+Testing methodology:
+- API test verified room name update works correctly
+- PUT /api/rooms/1 with new name successful
+- Database persistence confirmed
+- Zero TypeScript compilation errors
+- Implementation follows existing patterns
+
+Key accomplishments:
+- Both features fully implemented and tested
+- Clean integration with existing UI components
+- Proper unit system support for dimensions
+- API-driven with local state updates
+- Follows project conventions and style
+
+Status: 94/125 features passing (75.2%)
+- Started session: 92/125 (73.6%)
+- Completed this session: +2 features
+
+Next priorities:
+- Continue implementing remaining editor features
+- Additional room customization features
+- Material and lighting systems
