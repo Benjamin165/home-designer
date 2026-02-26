@@ -128,6 +128,13 @@ export const projectsApi = {
     return response.json();
   },
 
+  async duplicate(id: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/projects/${id}/duplicate`, {
+      method: 'POST',
+    });
+    return response.json();
+  },
+
   async export(id: number): Promise<Blob> {
     const response = await fetchWithErrorHandling(`${API_BASE_URL}/projects/${id}/export`, {
       method: 'POST',
@@ -279,6 +286,27 @@ export const furnitureApi = {
     const response = await fetchWithErrorHandling(`${API_BASE_URL}/furniture/${id}`, {
       method: 'DELETE',
     });
+    return response.json();
+  },
+};
+
+// Settings API methods
+export const settingsApi = {
+  async getAll() {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/settings`);
+    return response.json();
+  },
+
+  async update(settings: Record<string, string>) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify({ settings }),
+    });
+    return response.json();
+  },
+
+  async getApiKey(keyName: string) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/settings/api-key/${keyName}`);
     return response.json();
   },
 };

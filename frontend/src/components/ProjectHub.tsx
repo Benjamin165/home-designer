@@ -28,6 +28,7 @@ function ProjectHub() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [duplicatingProjectId, setDuplicatingProjectId] = useState<number | null>(null);
 
   // Refs to prevent double-submission (faster than state updates)
   const isSubmittingRef = useRef(false);
@@ -211,6 +212,44 @@ function ProjectHub() {
     input.click();
   };
 
+  const handleDuplicateClick = async (project: Project, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click navigation
+
+    // Prevent duplicate operations on the same project
+    if (duplicatingProjectId === project.id) {
+      return;
+    }
+
+    try {
+      setDuplicatingProjectId(project.id);
+
+      const data = await projectsApi.duplicate(project.id);
+
+      console.log('✓ Project duplicated:', data.project.name);
+
+      // Show success toast
+      toast.success('Project duplicated successfully', {
+        description: `"${data.project.name}" has been created`,
+      });
+
+      // Reload projects to show the duplicate
+      await loadProjects();
+    } catch (err) {
+      if (err instanceof ApiError && err.userMessage) {
+        toast.error('Duplication failed', {
+          description: err.userMessage,
+        });
+      } else {
+        toast.error('Duplication failed', {
+          description: 'Failed to duplicate project. Please try again.',
+        });
+      }
+      console.error('Error duplicating project:', err);
+    } finally {
+      setDuplicatingProjectId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
@@ -387,27 +426,75 @@ function ProjectHub() {
                   </div>
                 </div>
 
-                {/* Delete button - appears on hover */}
-                <button
-                  onClick={(e) => handleDeleteClick(project, e)}
-                  className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500"
-                  aria-label={`Delete ${project.name}`}
-                  title="Delete project"
-                >
-                  <svg
-                    className="h-5 w-5 text-red-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+                {/* Action buttons - appear on hover */}
+                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Duplicate button */}
+                  <button
+                    onClick={(e) => handleDuplicateClick(project, e)}
+                    disabled={duplicatingProjectId === project.id}
+                    className="p-2 bg-white rounded-full shadow-md hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label={`Duplicate ${project.name}`}
+                    title="Duplicate project"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
+                    {duplicatingProjectId === project.id ? (
+                      <svg
+                        className="h-5 w-5 text-blue-600 animate-spin"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="h-5 w-5 text-blue-600"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        />
+                      </svg>
+                    )}
+                  </button>
+
+                  {/* Delete button */}
+                  <button
+                    onClick={(e) => handleDeleteClick(project, e)}
+                    className="p-2 bg-white rounded-full shadow-md hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    aria-label={`Delete ${project.name}`}
+                    title="Delete project"
+                  >
+                    <svg
+                      className="h-5 w-5 text-red-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
             ))}
           </div>

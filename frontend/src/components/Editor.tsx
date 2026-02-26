@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { projectsApi, floorsApi, roomsApi, furnitureApi, ApiError } from '../lib/api';
+import { projectsApi, floorsApi, roomsApi, furnitureApi, settingsApi, ApiError } from '../lib/api';
 import { useEditorStore } from '../store/editorStore';
 import Viewport3D from './Viewport3D';
 import AssetLibrary from './AssetLibrary';
 import FloorSwitcher from './FloorSwitcher';
 import PropertiesPanel from './PropertiesPanel';
+import SettingsModal from './SettingsModal';
 import {
   MousePointer2,
   Square,
@@ -69,6 +70,10 @@ function Editor() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showUploadError, setShowUploadError] = useState(false);
 
+  // Settings modal state
+  const [showSettings, setShowSettings] = useState(false);
+  const [autoSaveInterval, setAutoSaveInterval] = useState(60000); // Default 60 seconds
+
   // Save state tracking
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -98,6 +103,18 @@ function Editor() {
     }
   }, [projectId]);
 
+  // Load settings on mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  // Reload settings when settings modal closes
+  useEffect(() => {
+    if (!showSettings) {
+      loadSettings();
+    }
+  }, [showSettings]);
+
   useEffect(() => {
     if (currentFloorId) {
       loadRooms();
@@ -119,6 +136,9 @@ function Editor() {
   useEffect(() => {
     // Skip if no project loaded yet
     if (!project || !projectId) return;
+
+    // Skip if auto-save is disabled (interval = 0)
+    if (autoSaveInterval === 0) return;
 
     // Create a snapshot of current data
     const currentData = JSON.stringify({
@@ -143,10 +163,12 @@ function Editor() {
       clearTimeout(saveTimeoutRef.current);
     }
 
-    // Debounce save for 1 second
+    // Debounce save using configured interval
+    console.log('[Auto-save] Scheduling save in', autoSaveInterval, 'ms');
     saveTimeoutRef.current = setTimeout(() => {
       // Mark as saved (in a real app, you'd make an API call here)
       // The data is already saved via individual API calls (createRoom, placeFurniture, etc.)
+      console.log('[Auto-save] Save triggered');
       lastSaveDataRef.current = currentData;
       setSaveState('saved');
 
@@ -154,14 +176,14 @@ function Editor() {
       setTimeout(() => {
         setSaveState('idle');
       }, 2000);
-    }, 1000);
+    }, autoSaveInterval);
 
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [rooms, furniturePlacements, floors, project, projectId]);
+  }, [rooms, furniturePlacements, floors, project, projectId, autoSaveInterval]);
 
   const loadProject = async () => {
     if (!projectId) {
@@ -258,6 +280,19 @@ function Editor() {
       setFurniturePlacements(allFurniture);
     } catch (err) {
       console.error('Error loading furniture:', err);
+    }
+  };
+
+  const loadSettings = async () => {
+    try {
+      const data = await settingsApi.getAll();
+      const interval = parseInt(data.settings.auto_save_interval || '60000');
+      setAutoSaveInterval(interval);
+      console.log('[Settings] Auto-save interval loaded:', interval, 'ms');
+    } catch (err) {
+      console.error('Error loading settings:', err);
+      // Use default if load fails
+      setAutoSaveInterval(60000);
     }
   };
 
@@ -760,8 +795,8 @@ function Editor() {
             </button>
 
             <button
-              onClick={() => {/* TODO: Open settings */}}
-              className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors"
+              onClick={() => setShowSettings(true)}
+              className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
               title="Settings"
             >
               <Settings className="w-5 h-5" />
@@ -1021,6 +1056,9 @@ function Editor() {
           </div>
         </div>
       )}
+
+      {/* Settings Modal */}
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 }

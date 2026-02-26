@@ -192,6 +192,263 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// POST /api/projects/:id/duplicate - Duplicate a project
+router.post('/:id/duplicate', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+
+    // Get original project
+    const projectResult = db.exec('SELECT * FROM projects WHERE id = ?', [parseInt(id)]);
+    if (projectResult.length === 0 || projectResult[0].values.length === 0) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const projectColumns = projectResult[0].columns;
+    const projectRow = projectResult[0].values[0];
+    const project = {};
+    projectColumns.forEach((col, idx) => {
+      project[col] = projectRow[idx];
+    });
+
+    // Helper function to convert SQL result to objects
+    const resultToObjects = (result) => {
+      if (result.length === 0 || result[0].values.length === 0) return [];
+      const columns = result[0].columns;
+      return result[0].values.map(row => {
+        const obj = {};
+        columns.forEach((col, idx) => {
+          obj[col] = row[idx];
+        });
+        return obj;
+      });
+    };
+
+    // Get all related data
+    const floors = resultToObjects(db.exec('SELECT * FROM floors WHERE project_id = ?', [parseInt(id)]));
+
+    // Get all rooms for all floors
+    const floorIds = floors.map(f => f.id);
+    let rooms = [];
+    let walls = [];
+    let furniturePlacements = [];
+    let lights = [];
+    let windows = [];
+    let doors = [];
+
+    if (floorIds.length > 0) {
+      rooms = resultToObjects(db.exec(`SELECT * FROM rooms WHERE floor_id IN (${floorIds.join(',')})`));
+
+      const roomIds = rooms.map(r => r.id);
+      if (roomIds.length > 0) {
+        walls = resultToObjects(db.exec(`SELECT * FROM walls WHERE room_id IN (${roomIds.join(',')})`));
+        furniturePlacements = resultToObjects(db.exec(`SELECT * FROM furniture_placements WHERE room_id IN (${roomIds.join(',')})`));
+        lights = resultToObjects(db.exec(`SELECT * FROM lights WHERE room_id IN (${roomIds.join(',')})`));
+
+        const wallIds = walls.map(w => w.id);
+        if (wallIds.length > 0) {
+          windows = resultToObjects(db.exec(`SELECT * FROM windows WHERE wall_id IN (${wallIds.join(',')})`));
+          doors = resultToObjects(db.exec(`SELECT * FROM doors WHERE wall_id IN (${wallIds.join(',')})`));
+        }
+      }
+    }
+
+    // Create duplicate project
+    db.run(
+      `INSERT INTO projects (name, description, unit_system, thumbnail_path, created_at, updated_at)
+       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [
+        project.name + ' (Copy)',
+        project.description,
+        project.unit_system,
+        project.thumbnail_path
+      ]
+    );
+
+    // Get new project ID
+    const newProjectResult = db.exec('SELECT * FROM projects ORDER BY id DESC LIMIT 1');
+    const newProjectId = newProjectResult[0].values[0][0];
+
+    // Duplicate floors
+    const floorIdMap = new Map(); // old ID -> new ID
+    for (const floor of floors) {
+      db.run(
+        `INSERT INTO floors (project_id, name, level, order_index)
+         VALUES (?, ?, ?, ?)`,
+        [newProjectId, floor.name, floor.level, floor.order_index]
+      );
+
+      const floorResult = db.exec('SELECT * FROM floors ORDER BY id DESC LIMIT 1');
+      const newFloorId = floorResult[0].values[0][0];
+      floorIdMap.set(floor.id, newFloorId);
+    }
+
+    // Duplicate rooms
+    const roomIdMap = new Map(); // old ID -> new ID
+    for (const room of rooms) {
+      const newFloorId = floorIdMap.get(room.floor_id);
+      if (!newFloorId) continue;
+
+      db.run(
+        `INSERT INTO rooms (floor_id, name, dimensions_json, floor_material, floor_color, ceiling_height, ceiling_material, ceiling_color, position_x, position_y, position_z)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newFloorId,
+          room.name,
+          room.dimensions_json,
+          room.floor_material,
+          room.floor_color,
+          room.ceiling_height,
+          room.ceiling_material,
+          room.ceiling_color,
+          room.position_x,
+          room.position_y,
+          room.position_z
+        ]
+      );
+
+      const roomResult = db.exec('SELECT * FROM rooms ORDER BY id DESC LIMIT 1');
+      const newRoomId = roomResult[0].values[0][0];
+      roomIdMap.set(room.id, newRoomId);
+    }
+
+    // Duplicate walls
+    const wallIdMap = new Map(); // old ID -> new ID
+    for (const wall of walls) {
+      const newRoomId = roomIdMap.get(wall.room_id);
+      if (!newRoomId) continue;
+
+      db.run(
+        `INSERT INTO walls (room_id, start_x, start_z, end_x, end_z, height, thickness, material, color)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newRoomId,
+          wall.start_x,
+          wall.start_z,
+          wall.end_x,
+          wall.end_z,
+          wall.height,
+          wall.thickness,
+          wall.material,
+          wall.color
+        ]
+      );
+
+      const wallResult = db.exec('SELECT * FROM walls ORDER BY id DESC LIMIT 1');
+      const newWallId = wallResult[0].values[0][0];
+      wallIdMap.set(wall.id, newWallId);
+    }
+
+    // Duplicate windows
+    for (const window of windows) {
+      const newWallId = wallIdMap.get(window.wall_id);
+      if (!newWallId) continue;
+
+      db.run(
+        `INSERT INTO windows (wall_id, position_along_wall, width, height, sill_height, style)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          newWallId,
+          window.position_along_wall,
+          window.width,
+          window.height,
+          window.sill_height,
+          window.style
+        ]
+      );
+    }
+
+    // Duplicate doors
+    for (const door of doors) {
+      const newWallId = wallIdMap.get(door.wall_id);
+      if (!newWallId) continue;
+
+      db.run(
+        `INSERT INTO doors (wall_id, position_along_wall, width, height, style, opens_inward)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          newWallId,
+          door.position_along_wall,
+          door.width,
+          door.height,
+          door.style,
+          door.opens_inward
+        ]
+      );
+    }
+
+    // Duplicate furniture placements
+    for (const furniture of furniturePlacements) {
+      const newRoomId = roomIdMap.get(furniture.room_id);
+      if (!newRoomId) continue;
+
+      db.run(
+        `INSERT INTO furniture_placements (room_id, asset_id, position_x, position_y, position_z, rotation_x, rotation_y, rotation_z, scale_x, scale_y, scale_z)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newRoomId,
+          furniture.asset_id,
+          furniture.position_x,
+          furniture.position_y,
+          furniture.position_z,
+          furniture.rotation_x,
+          furniture.rotation_y,
+          furniture.rotation_z,
+          furniture.scale_x,
+          furniture.scale_y,
+          furniture.scale_z
+        ]
+      );
+    }
+
+    // Duplicate lights
+    for (const light of lights) {
+      const newRoomId = roomIdMap.get(light.room_id);
+      if (!newRoomId) continue;
+
+      db.run(
+        `INSERT INTO lights (room_id, type, position_x, position_y, position_z, color, intensity, casts_shadows)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newRoomId,
+          light.type,
+          light.position_x,
+          light.position_y,
+          light.position_z,
+          light.color,
+          light.intensity,
+          light.casts_shadows
+        ]
+      );
+    }
+
+    // Save to disk
+    saveDatabase();
+
+    // Get the duplicated project
+    const duplicateResult = db.exec('SELECT * FROM projects WHERE id = ?', [newProjectId]);
+    const columns = duplicateResult[0].columns;
+    const row = duplicateResult[0].values[0];
+    const duplicateProject = {};
+    columns.forEach((col, idx) => {
+      duplicateProject[col] = row[idx];
+    });
+
+    console.log(`✓ Duplicated project ${id} (${project.name}) -> ${newProjectId} (${duplicateProject.name})`);
+    console.log(`  - Floors: ${floors.length}`);
+    console.log(`  - Rooms: ${rooms.length}`);
+    console.log(`  - Furniture: ${furniturePlacements.length}`);
+
+    res.status(201).json({
+      message: 'Project duplicated successfully',
+      project: duplicateProject
+    });
+  } catch (error) {
+    console.error('Error duplicating project:', error);
+    res.status(500).json({ error: 'Failed to duplicate project' });
+  }
+});
+
 // POST /api/projects/:id/export - Export project as ZIP
 router.post('/:id/export', async (req, res) => {
   try {
