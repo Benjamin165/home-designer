@@ -314,4 +314,233 @@ router.post('/:id/export', async (req, res) => {
   }
 });
 
+// POST /api/projects/import - Import project from ZIP
+router.post('/import', upload.single('zipFile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No ZIP file uploaded' });
+    }
+
+    // Extract ZIP from buffer
+    const directory = await unzipper.Open.buffer(req.file.buffer);
+
+    // Find project_data.json
+    const projectDataFile = directory.files.find(f => f.path === 'project_data.json');
+    if (!projectDataFile) {
+      return res.status(400).json({ error: 'Invalid backup file: project_data.json not found' });
+    }
+
+    // Parse project data
+    const content = await projectDataFile.buffer();
+    const importData = JSON.parse(content.toString());
+
+    // Validate data structure
+    if (!importData.version || !importData.project) {
+      return res.status(400).json({ error: 'Invalid backup file: missing required data' });
+    }
+
+    const db = await getDatabase();
+
+    // Import project (without ID to create new one)
+    const { name, description, unit_system, thumbnail_path } = importData.project;
+    db.run(
+      `INSERT INTO projects (name, description, unit_system, thumbnail_path, created_at, updated_at)
+       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [
+        name + ' (Imported)', // Append "(Imported)" to avoid conflicts
+        description || null,
+        unit_system || 'metric',
+        thumbnail_path || null
+      ]
+    );
+
+    // Get new project ID
+    const projectResult = db.exec('SELECT * FROM projects ORDER BY id DESC LIMIT 1');
+    if (projectResult.length === 0 || projectResult[0].values.length === 0) {
+      throw new Error('Failed to retrieve imported project');
+    }
+
+    const newProjectId = projectResult[0].values[0][0]; // First column is ID
+    console.log(`✓ Created imported project with ID ${newProjectId}`);
+
+    // Import floors
+    const floorIdMap = new Map(); // old ID -> new ID
+    for (const floor of importData.floors) {
+      db.run(
+        `INSERT INTO floors (project_id, name, level, order_index)
+         VALUES (?, ?, ?, ?)`,
+        [newProjectId, floor.name, floor.level, floor.order_index]
+      );
+
+      const floorResult = db.exec('SELECT * FROM floors ORDER BY id DESC LIMIT 1');
+      const newFloorId = floorResult[0].values[0][0];
+      floorIdMap.set(floor.id, newFloorId);
+    }
+
+    // Import rooms
+    const roomIdMap = new Map(); // old ID -> new ID
+    for (const room of importData.rooms) {
+      const newFloorId = floorIdMap.get(room.floor_id);
+      if (!newFloorId) continue;
+
+      db.run(
+        `INSERT INTO rooms (floor_id, name, dimensions_json, floor_material, floor_color, ceiling_height, ceiling_material, ceiling_color, position_x, position_y, position_z)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newFloorId,
+          room.name,
+          room.dimensions_json,
+          room.floor_material,
+          room.floor_color,
+          room.ceiling_height,
+          room.ceiling_material,
+          room.ceiling_color,
+          room.position_x,
+          room.position_y,
+          room.position_z
+        ]
+      );
+
+      const roomResult = db.exec('SELECT * FROM rooms ORDER BY id DESC LIMIT 1');
+      const newRoomId = roomResult[0].values[0][0];
+      roomIdMap.set(room.id, newRoomId);
+    }
+
+    // Import walls
+    const wallIdMap = new Map(); // old ID -> new ID
+    for (const wall of importData.walls) {
+      const newRoomId = roomIdMap.get(wall.room_id);
+      if (!newRoomId) continue;
+
+      db.run(
+        `INSERT INTO walls (room_id, start_x, start_z, end_x, end_z, height, thickness, material, color)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newRoomId,
+          wall.start_x,
+          wall.start_z,
+          wall.end_x,
+          wall.end_z,
+          wall.height,
+          wall.thickness,
+          wall.material,
+          wall.color
+        ]
+      );
+
+      const wallResult = db.exec('SELECT * FROM walls ORDER BY id DESC LIMIT 1');
+      const newWallId = wallResult[0].values[0][0];
+      wallIdMap.set(wall.id, newWallId);
+    }
+
+    // Import windows
+    for (const window of importData.windows || []) {
+      const newWallId = wallIdMap.get(window.wall_id);
+      if (!newWallId) continue;
+
+      db.run(
+        `INSERT INTO windows (wall_id, position_along_wall, width, height, sill_height, style)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          newWallId,
+          window.position_along_wall,
+          window.width,
+          window.height,
+          window.sill_height,
+          window.style
+        ]
+      );
+    }
+
+    // Import doors
+    for (const door of importData.doors || []) {
+      const newWallId = wallIdMap.get(door.wall_id);
+      if (!newWallId) continue;
+
+      db.run(
+        `INSERT INTO doors (wall_id, position_along_wall, width, height, style, opens_inward)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          newWallId,
+          door.position_along_wall,
+          door.width,
+          door.height,
+          door.style,
+          door.opens_inward
+        ]
+      );
+    }
+
+    // Import furniture placements
+    for (const furniture of importData.furniture_placements) {
+      const newRoomId = roomIdMap.get(furniture.room_id);
+      if (!newRoomId) continue;
+
+      db.run(
+        `INSERT INTO furniture_placements (room_id, asset_id, position_x, position_y, position_z, rotation_x, rotation_y, rotation_z, scale_x, scale_y, scale_z)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newRoomId,
+          furniture.asset_id,
+          furniture.position_x,
+          furniture.position_y,
+          furniture.position_z,
+          furniture.rotation_x,
+          furniture.rotation_y,
+          furniture.rotation_z,
+          furniture.scale_x,
+          furniture.scale_y,
+          furniture.scale_z
+        ]
+      );
+    }
+
+    // Import lights
+    for (const light of importData.lights) {
+      const newRoomId = roomIdMap.get(light.room_id);
+      if (!newRoomId) continue;
+
+      db.run(
+        `INSERT INTO lights (room_id, type, position_x, position_y, position_z, color, intensity, casts_shadows)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newRoomId,
+          light.type,
+          light.position_x,
+          light.position_y,
+          light.position_z,
+          light.color,
+          light.intensity,
+          light.casts_shadows
+        ]
+      );
+    }
+
+    // Save to disk
+    saveDatabase();
+
+    // Get the imported project
+    const importedProjectResult = db.exec('SELECT * FROM projects WHERE id = ?', [newProjectId]);
+    const columns = importedProjectResult[0].columns;
+    const row = importedProjectResult[0].values[0];
+    const project = {};
+    columns.forEach((col, idx) => {
+      project[col] = row[idx];
+    });
+
+    console.log(`✓ Successfully imported project: ${project.name} (ID: ${newProjectId})`);
+    console.log(`  - Floors: ${importData.floors.length}`);
+    console.log(`  - Rooms: ${importData.rooms.length}`);
+    console.log(`  - Furniture: ${importData.furniture_placements.length}`);
+
+    res.status(201).json({
+      message: 'Project imported successfully',
+      project
+    });
+  } catch (error) {
+    console.error('Error importing project:', error);
+    res.status(500).json({ error: 'Failed to import project: ' + error.message });
+  }
+});
+
 export default router;

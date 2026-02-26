@@ -135,6 +135,18 @@ export const projectsApi = {
     });
     return response.blob();
   },
+
+  async import(zipFile: File) {
+    const formData = new FormData();
+    formData.append('zipFile', zipFile);
+
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/projects/import`, {
+      method: 'POST',
+      headers: {}, // Let browser set Content-Type with boundary for multipart/form-data
+      body: formData,
+    });
+    return response.json();
+  },
 };
 
 // Floors API methods
