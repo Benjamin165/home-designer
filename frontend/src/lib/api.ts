@@ -127,6 +127,14 @@ export const projectsApi = {
     });
     return response.json();
   },
+
+  async export(id: number): Promise<Blob> {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/projects/${id}/export`, {
+      method: 'POST',
+      headers: {}, // Remove Content-Type header for blob response
+    });
+    return response.blob();
+  },
 };
 
 // Floors API methods

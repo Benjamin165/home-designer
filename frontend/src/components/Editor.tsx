@@ -20,6 +20,7 @@ import {
   Redo2,
   Settings,
   Plus,
+  Download,
 } from 'lucide-react';
 
 interface Project {
@@ -56,6 +57,9 @@ function Editor() {
   const [widthError, setWidthError] = useState<string | null>(null);
   const [lengthError, setLengthError] = useState<string | null>(null);
   const [heightError, setHeightError] = useState<string | null>(null);
+
+  // Export state
+  const [isExporting, setIsExporting] = useState(false);
 
   // Zustand store
   const {
@@ -278,6 +282,43 @@ function Editor() {
       console.error('Error updating project:', err);
     } finally {
       setEditLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!project) return;
+
+    try {
+      setIsExporting(true);
+
+      // Call export API
+      const blob = await projectsApi.export(project.id);
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+
+      // Format filename: projectname_YYYY-MM-DD.zip
+      const date = new Date().toISOString().split('T')[0];
+      const safeProjectName = project.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      a.download = `${safeProjectName}_${date}.zip`;
+
+      // Trigger download
+      document.body.appendChild(a);
+      a.click();
+
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      console.log(`✓ Project exported: ${a.download}`);
+    } catch (err) {
+      console.error('Error exporting project:', err);
+      // TODO: Show error toast/notification
+      alert('Failed to export project. Please try again.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -584,6 +625,16 @@ function Editor() {
             <button className="px-3 py-2 flex items-center gap-2 text-sm bg-gray-700 text-gray-200 rounded hover:bg-gray-600 transition-colors">
               <Save className="w-4 h-4" />
               Save
+            </button>
+
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="px-3 py-2 flex items-center gap-2 text-sm bg-gray-700 text-gray-200 rounded hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Export Project as ZIP"
+            >
+              <Download className="w-4 h-4" />
+              {isExporting ? 'Exporting...' : 'Export'}
             </button>
 
             <button
