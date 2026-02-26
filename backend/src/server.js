@@ -4,8 +4,16 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import projectsRouter from './routes/projects.js';
+import assetsRouter from './routes/assets.js';
+import floorsRouter from './routes/floors.js';
+import roomsRouter from './routes/rooms.js';
+import wallsRouter from './routes/walls.js';
+import { resetDatabase } from './db/connection.js';
 
 dotenv.config();
+
+// Reset database connection on startup to ensure fresh connection with correct settings
+resetDatabase();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -119,19 +127,16 @@ app.get('/api/health/schema', async (req, res) => {
 
 // API routes
 app.use('/api/projects', projectsRouter);
+app.use('/api/assets', assetsRouter);
+app.use('/api', floorsRouter); // Handles /api/projects/:projectId/floors and /api/floors/:id
+app.use('/api', roomsRouter); // Handles /api/floors/:floorId/rooms and /api/rooms/:id
+app.use('/api', wallsRouter); // Handles /api/rooms/:roomId/walls and /api/walls/:id
 
 // Placeholder routes for other endpoints (will be implemented later)
-// app.use('/api/floors', floorsRouter);
-// app.use('/api/rooms', roomsRouter);
-// app.use('/api/assets', assetsRouter);
 // app.use('/api/furniture', furnitureRouter);
 // app.use('/api/ai', aiRouter);
 // app.use('/api/export', exportRouter);
 // app.use('/api/settings', settingsRouter);
-
-app.get('/api/assets', (req, res) => {
-  res.json({ message: 'Assets endpoint - implementation in progress', assets: [] });
-});
 
 // Error handling middleware
 app.use((err, req, res, next) => {

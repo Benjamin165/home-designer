@@ -18,7 +18,7 @@ console.log('');
 const SQL = await initSqlJs();
 const db = new SQL.Database();
 
-db.run('PRAGMA foreign_keys = ON');
+db.exec('PRAGMA foreign_keys = ON');
 console.log('✓ Database connection established');
 
 // Create tables

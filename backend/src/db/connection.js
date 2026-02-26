@@ -28,10 +28,16 @@ export async function getDatabase() {
       console.log('✓ New database created');
     }
 
-    // Enable foreign keys
-    db.run('PRAGMA foreign_keys = ON');
     console.log('✓ Database connection established');
   }
+
+  // Always ensure foreign keys are enabled (defensive approach)
+  // This is a lightweight check that ensures FK enforcement even if connection was cached
+  const fkCheck = db.exec('PRAGMA foreign_keys');
+  if (fkCheck.length === 0 || fkCheck[0].values[0][0] !== 1) {
+    db.exec('PRAGMA foreign_keys = ON');
+  }
+
   return db;
 }
 
@@ -50,6 +56,14 @@ export function closeDatabase() {
     db.close();
     db = null;
     console.log('✓ Database connection closed');
+  }
+}
+
+export function resetDatabase() {
+  if (db) {
+    db.close();
+    db = null;
+    console.log('✓ Database connection reset');
   }
 }
 
