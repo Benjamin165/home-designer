@@ -20,12 +20,29 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
   const [wallColor, setWallColor] = useState<string>('#e5e7eb');
   const [wallMaterial, setWallMaterial] = useState<string>('paint');
   const [roomName, setRoomName] = useState<string>('');
+  const [isNarrowScreen, setIsNarrowScreen] = useState(false);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
   const currentFloor = floors.find((f) => f.id === currentFloorId);
 
   // Get furniture in the selected room
   const roomFurniture = furniturePlacements.filter((f) => f.room_id === selectedRoomId);
+
+  // Handle responsive behavior
+  useEffect(() => {
+    const checkScreenWidth = () => {
+      const isNarrow = window.innerWidth < 768; // md breakpoint
+      setIsNarrowScreen(isNarrow);
+      // Auto-collapse when resizing to narrow screens
+      if (isNarrow) {
+        setIsCollapsed(true);
+      }
+    };
+
+    checkScreenWidth();
+    window.addEventListener('resize', checkScreenWidth);
+    return () => window.removeEventListener('resize', checkScreenWidth);
+  }, []);
 
   // Initialize ceiling height and room name when room selection changes
   useEffect(() => {
@@ -250,7 +267,9 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
   return (
     <>
       {toggleButton}
-      <div className="absolute top-16 right-4 w-80 bg-gray-800/95 border border-gray-700 rounded-lg shadow-xl max-h-[calc(100vh-6rem)] overflow-y-auto">
+      <div className={`absolute top-16 bg-gray-800/95 border border-gray-700 rounded-lg shadow-xl max-h-[calc(100vh-6rem)] overflow-y-auto ${
+        isNarrowScreen ? 'right-2 w-[calc(100vw-1rem)] max-w-sm' : 'right-4 w-80'
+      }`}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 sticky top-0 bg-gray-800/95 z-10">
           <h2 className="text-lg font-semibold text-white">Properties</h2>

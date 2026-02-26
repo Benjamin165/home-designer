@@ -40,8 +40,25 @@ export default function AssetLibrary() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [isNarrowScreen, setIsNarrowScreen] = useState(false);
   const isDraggingRef = useRef(false);
   const { setDraggingAsset } = useEditorStore();
+
+  // Handle responsive behavior
+  useEffect(() => {
+    const checkScreenWidth = () => {
+      const isNarrow = window.innerWidth < 768; // md breakpoint
+      setIsNarrowScreen(isNarrow);
+      // Auto-collapse when resizing to narrow screens
+      if (isNarrow) {
+        setIsCollapsed(true);
+      }
+    };
+
+    checkScreenWidth();
+    window.addEventListener('resize', checkScreenWidth);
+    return () => window.removeEventListener('resize', checkScreenWidth);
+  }, []);
 
   useEffect(() => {
     loadAssets();
@@ -116,6 +133,9 @@ export default function AssetLibrary() {
   return (
     <div className={`h-full bg-gray-800 border-r border-gray-700 flex flex-col transition-all duration-300 ${
       isCollapsed ? 'w-12' : 'w-80'
+    } ${
+      // On narrow screens when expanded, make it overlay
+      isNarrowScreen && !isCollapsed ? 'absolute left-0 top-0 z-50 shadow-2xl' : 'relative'
     }`}>
       {isCollapsed ? (
         // Collapsed state - just show expand button
