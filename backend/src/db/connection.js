@@ -37,6 +37,15 @@ export async function getDatabase() {
     const fkEnabled = verifyCheck.length > 0 && verifyCheck[0].values[0][0] === 1;
     console.log(`✓ Foreign keys enabled: ${fkEnabled}`);
 
+    // Add run() method for parameterized queries
+    // sql.js doesn't have db.run() - we need to use prepare/bind/step
+    db.run = function(sql, params = []) {
+      const stmt = this.prepare(sql);
+      stmt.bind(params);
+      stmt.step();
+      stmt.free();
+    };
+
     console.log('✓ Database connection established');
   }
 
