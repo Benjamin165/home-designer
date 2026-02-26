@@ -160,7 +160,25 @@ router.delete('/floors/:id', async (req, res) => {
       return res.status(404).json({ error: 'Floor not found' });
     }
 
-    // Delete floor (CASCADE will handle related rooms)
+    // Manually delete associated rooms first (sql.js CASCADE may not work reliably)
+    // This ensures all rooms and their furniture are deleted
+    const roomsResult = db.exec('SELECT id FROM rooms WHERE floor_id = ?', [parseInt(id)]);
+    if (roomsResult.length > 0 && roomsResult[0].values.length > 0) {
+      const roomIds = roomsResult[0].values.map(row => row[0]);
+      roomIds.forEach(roomId => {
+        // Delete furniture placements for each room
+        db.run('DELETE FROM furniture_placements WHERE room_id = ?', [roomId]);
+        // Delete walls for each room
+        db.run('DELETE FROM walls WHERE room_id = ?', [roomId]);
+        // Delete lights for each room
+        db.run('DELETE FROM lights WHERE room_id = ?', [roomId]);
+        // Delete the room itself
+        db.run('DELETE FROM rooms WHERE id = ?', [roomId]);
+      });
+      console.log(`Deleted ${roomIds.length} rooms from floor ${id}`);
+    }
+
+    // Delete floor
     db.run('DELETE FROM floors WHERE id = ?', [parseInt(id)]);
 
     saveDatabase();
