@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { assetsApi } from '../lib/api';
 import { useEditorStore } from '../store/editorStore';
-import { Package, Sofa, Lightbulb, Flower2, Frame, ChevronLeft, ChevronRight, Search, X, Sparkles } from 'lucide-react';
+import { Package, Sofa, Lightbulb, Flower2, Frame, ChevronLeft, ChevronRight, Search, X, Sparkles, Star } from 'lucide-react';
 import AIGenerationModal from './AIGenerationModal';
+import { toast } from 'sonner';
 
 interface Asset {
   id: number;
@@ -15,6 +16,7 @@ interface Asset {
   width: number;
   height: number;
   depth: number;
+  is_favorite: number; // SQLite stores boolean as 0 or 1
 }
 
 const categoryIcons: Record<string, any> = {
@@ -32,11 +34,12 @@ export default function AssetLibrary() {
   const [error, setError] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const { setDraggingAsset } = useEditorStore();
 
   useEffect(() => {
     loadAssets();
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategory, searchQuery, showFavoritesOnly]);
 
   const loadAssets = async () => {
     try {
@@ -45,6 +48,7 @@ export default function AssetLibrary() {
       const data = await assetsApi.getAll({
         category: selectedCategory || undefined,
         search: searchQuery || undefined,
+        favorite: showFavoritesOnly || undefined,
       });
       setAssets(data.assets || []);
     } catch (err) {
@@ -52,6 +56,28 @@ export default function AssetLibrary() {
       setError('Failed to load assets');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleFavorite = async (assetId: number, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent drag start
+    try {
+      const result = await assetsApi.toggleFavorite(assetId);
+      // Update the local state
+      setAssets(prevAssets =>
+        prevAssets.map(asset =>
+          asset.id === assetId ? { ...asset, is_favorite: result.asset.is_favorite } : asset
+        )
+      );
+      toast.success(result.asset.is_favorite ? 'Added to favorites' : 'Removed from favorites');
+
+      // If we're in favorites-only view and we just unfavorited, refresh to remove it from list
+      if (showFavoritesOnly && !result.asset.is_favorite) {
+        loadAssets();
+      }
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+      toast.error('Failed to update favorite');
     }
   };
 
@@ -106,12 +132,33 @@ export default function AssetLibrary() {
             </button>
           </div>
 
+      {/* Favorites toggle */}
+      <div className="px-4 py-2 border-b border-gray-700">
+        <button
+          onClick={() => {
+            setShowFavoritesOnly(!showFavoritesOnly);
+            setSelectedCategory(null); // Clear category filter when toggling favorites
+          }}
+          className={`w-full px-3 py-2 rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+            showFavoritesOnly
+              ? 'bg-yellow-600 text-white'
+              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+          }`}
+        >
+          <Star className={`w-4 h-4 ${showFavoritesOnly ? 'fill-current' : ''}`} />
+          {showFavoritesOnly ? 'Showing Favorites' : 'Show Favorites'}
+        </button>
+      </div>
+
       {/* Category tabs */}
       <div className="px-2 py-2 border-b border-gray-700 flex gap-1 overflow-x-auto">
         <button
-          onClick={() => setSelectedCategory(null)}
+          onClick={() => {
+            setSelectedCategory(null);
+            setShowFavoritesOnly(false);
+          }}
           className={`px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap ${
-            selectedCategory === null
+            selectedCategory === null && !showFavoritesOnly
               ? 'bg-blue-600 text-white'
               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
           }`}
@@ -123,9 +170,12 @@ export default function AssetLibrary() {
           return (
             <button
               key={cat}
-              onClick={() => setSelectedCategory(cat)}
+              onClick={() => {
+                setSelectedCategory(cat);
+                setShowFavoritesOnly(false);
+              }}
               className={`px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap ${
-                selectedCategory === cat
+                selectedCategory === cat && !showFavoritesOnly
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
               }`}
@@ -202,8 +252,23 @@ export default function AssetLibrary() {
                 draggable
                 onDragStart={handleDragStart(asset)}
                 onDragEnd={handleDragEnd}
-                className="bg-gray-700 rounded-lg p-3 cursor-grab active:cursor-grabbing hover:bg-gray-600 transition-colors group"
+                className="bg-gray-700 rounded-lg p-3 cursor-grab active:cursor-grabbing hover:bg-gray-600 transition-colors group relative"
               >
+                {/* Favorite star button */}
+                <button
+                  onClick={(e) => handleToggleFavorite(asset.id, e)}
+                  className="absolute top-2 right-2 p-1.5 rounded-full bg-gray-800/80 hover:bg-gray-900 transition-colors z-10"
+                  title={asset.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                >
+                  <Star
+                    className={`w-4 h-4 transition-colors ${
+                      asset.is_favorite
+                        ? 'fill-yellow-400 text-yellow-400'
+                        : 'text-gray-400 hover:text-yellow-400'
+                    }`}
+                  />
+                </button>
+
                 {/* Thumbnail placeholder */}
                 <div className="aspect-square bg-gray-600 rounded mb-2 flex items-center justify-center">
                   {categoryIcons[asset.category] ? (

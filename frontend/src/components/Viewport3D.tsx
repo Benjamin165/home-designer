@@ -454,10 +454,9 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        visible={false}
       >
         <planeGeometry args={[100, 100]} />
-        <meshBasicMaterial />
+        <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
       {/* Preview rectangle while drawing */}
@@ -548,6 +547,7 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
       <OrbitControls
         ref={controlsRef}
         makeDefault
+        enabled={currentTool !== 'draw-wall'}
         maxPolarAngle={Math.PI / 2.2}
         minDistance={2}
         maxDistance={50}

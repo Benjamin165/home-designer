@@ -147,6 +147,29 @@ function Editor() {
     return () => window.removeEventListener('createRoom', handleCreateRoom);
   }, [currentFloorId]);
 
+  // Listen for dimension updates during room drawing
+  useEffect(() => {
+    const handleUpdateDimensions = (event: any) => {
+      const { width, depth } = event.detail;
+      const unit = unitSystem === 'metric' ? 'm' : 'ft';
+      const widthDisplay = unitSystem === 'metric' ? width.toFixed(1) : (width * 3.28084).toFixed(1);
+      const depthDisplay = unitSystem === 'metric' ? depth.toFixed(1) : (depth * 3.28084).toFixed(1);
+      setDimensionText(`${widthDisplay}${unit} × ${depthDisplay}${unit}`);
+    };
+
+    const handleClearDimensions = () => {
+      setDimensionText('');
+    };
+
+    window.addEventListener('updateDimensions', handleUpdateDimensions);
+    window.addEventListener('clearDimensions', handleClearDimensions);
+
+    return () => {
+      window.removeEventListener('updateDimensions', handleUpdateDimensions);
+      window.removeEventListener('clearDimensions', handleClearDimensions);
+    };
+  }, [unitSystem]);
+
   // Keyboard shortcuts for undo/redo
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
@@ -939,6 +962,15 @@ function Editor() {
           {/* 3D Viewport */}
           <div className="flex-1 relative">
             <Viewport3D />
+
+            {/* Dimension Display Overlay (during drawing) */}
+            {dimensionText && (
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                <div className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow-2xl text-2xl font-bold font-mono">
+                  {dimensionText}
+                </div>
+              </div>
+            )}
 
             {/* Floor Switcher */}
             {project && <FloorSwitcher projectId={project.id} />}

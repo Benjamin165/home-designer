@@ -231,11 +231,12 @@ export const roomsApi = {
 
 // Assets API methods
 export const assetsApi = {
-  async getAll(params?: { category?: string; search?: string; limit?: number }) {
+  async getAll(params?: { category?: string; search?: string; limit?: number; favorite?: boolean }) {
     const queryParams = new URLSearchParams();
     if (params?.category) queryParams.append('category', params.category);
     if (params?.search) queryParams.append('search', params.search);
     if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.favorite) queryParams.append('favorite', 'true');
 
     const url = `${API_BASE_URL}/assets${queryParams.toString() ? `?${queryParams}` : ''}`;
     const response = await fetchWithErrorHandling(url);
@@ -244,6 +245,13 @@ export const assetsApi = {
 
   async getById(id: number) {
     const response = await fetchWithErrorHandling(`${API_BASE_URL}/assets/${id}`);
+    return response.json();
+  },
+
+  async toggleFavorite(id: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/assets/${id}/favorite`, {
+      method: 'PUT',
+    });
     return response.json();
   },
 };
