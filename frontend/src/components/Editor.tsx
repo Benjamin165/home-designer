@@ -18,6 +18,7 @@ import {
   Undo2,
   Redo2,
   Settings,
+  Plus,
 } from 'lucide-react';
 
 interface Project {
@@ -449,6 +450,13 @@ function Editor() {
                 <Square className="w-5 h-5" />
               </button>
               <button
+                onClick={handleOpenDimensionsModal}
+                className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors"
+                title="Create Room by Dimensions"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+              <button
                 onClick={() => handleToolSelect('place-furniture')}
                 className={`p-2 rounded transition-colors ${
                   currentTool === 'place-furniture'
@@ -636,6 +644,90 @@ function Editor() {
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {editLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Room by Dimensions Modal */}
+      {showDimensionsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold text-white mb-4">Create Room by Dimensions</h2>
+
+            <form onSubmit={handleCreateRoomByDimensions}>
+              <div className="mb-4">
+                <label htmlFor="room-width" className="block text-sm font-medium text-gray-300 mb-2">
+                  Width (meters) *
+                </label>
+                <input
+                  id="room-width"
+                  type="number"
+                  step="0.1"
+                  min="0.5"
+                  value={roomWidth}
+                  onChange={(e) => setRoomWidth(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="5.0"
+                  autoFocus
+                />
+              </div>
+
+              <div className="mb-4">
+                <label htmlFor="room-length" className="block text-sm font-medium text-gray-300 mb-2">
+                  Length (meters) *
+                </label>
+                <input
+                  id="room-length"
+                  type="number"
+                  step="0.1"
+                  min="0.5"
+                  value={roomLength}
+                  onChange={(e) => setRoomLength(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="4.0"
+                />
+              </div>
+
+              <div className="mb-6">
+                <label htmlFor="room-height" className="block text-sm font-medium text-gray-300 mb-2">
+                  Ceiling Height (meters) *
+                </label>
+                <input
+                  id="room-height"
+                  type="number"
+                  step="0.1"
+                  min="2.0"
+                  value={roomHeight}
+                  onChange={(e) => setRoomHeight(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="2.8"
+                />
+              </div>
+
+              {dimensionsError && (
+                <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-md" role="alert" aria-live="assertive">
+                  <p className="text-sm text-red-300">{dimensionsError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={handleCloseDimensionsModal}
+                  disabled={dimensionsLoading}
+                  className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={dimensionsLoading}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {dimensionsLoading ? 'Creating...' : 'Create Room'}
                 </button>
               </div>
             </form>

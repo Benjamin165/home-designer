@@ -1,5 +1,12 @@
 import express from 'express';
 import { getDatabase, saveDatabase } from '../db/connection.js';
+import archiver from 'archiver';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { existsSync } from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const router = express.Router();
 
@@ -163,6 +170,132 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting project:', error);
     res.status(500).json({ error: 'Failed to delete project' });
+  }
+});
+
+// POST /api/projects/:id/export - Export project as ZIP
+router.post('/:id/export', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+
+    // Get project
+    const projectResult = db.exec('SELECT * FROM projects WHERE id = ?', [parseInt(id)]);
+    if (projectResult.length === 0 || projectResult[0].values.length === 0) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const projectColumns = projectResult[0].columns;
+    const projectRow = projectResult[0].values[0];
+    const project = {};
+    projectColumns.forEach((col, idx) => {
+      project[col] = projectRow[idx];
+    });
+
+    // Helper function to convert SQL result to objects
+    const resultToObjects = (result) => {
+      if (result.length === 0 || result[0].values.length === 0) return [];
+      const columns = result[0].columns;
+      return result[0].values.map(row => {
+        const obj = {};
+        columns.forEach((col, idx) => {
+          obj[col] = row[idx];
+        });
+        return obj;
+      });
+    };
+
+    // Get all related data
+    const floors = resultToObjects(db.exec('SELECT * FROM floors WHERE project_id = ?', [parseInt(id)]));
+
+    // Get all rooms for all floors
+    const floorIds = floors.map(f => f.id);
+    let rooms = [];
+    let walls = [];
+    let furniturePlacements = [];
+    let lights = [];
+    let windows = [];
+    let doors = [];
+
+    if (floorIds.length > 0) {
+      rooms = resultToObjects(db.exec(`SELECT * FROM rooms WHERE floor_id IN (${floorIds.join(',')})`));
+
+      const roomIds = rooms.map(r => r.id);
+      if (roomIds.length > 0) {
+        walls = resultToObjects(db.exec(`SELECT * FROM walls WHERE room_id IN (${roomIds.join(',')})`));
+        furniturePlacements = resultToObjects(db.exec(`SELECT * FROM furniture_placements WHERE room_id IN (${roomIds.join(',')})`));
+        lights = resultToObjects(db.exec(`SELECT * FROM lights WHERE room_id IN (${roomIds.join(',')})`));
+
+        const wallIds = walls.map(w => w.id);
+        if (wallIds.length > 0) {
+          windows = resultToObjects(db.exec(`SELECT * FROM windows WHERE wall_id IN (${wallIds.join(',')})`));
+          doors = resultToObjects(db.exec(`SELECT * FROM doors WHERE wall_id IN (${wallIds.join(',')})`));
+        }
+      }
+    }
+
+    // Get assets used in this project (from furniture placements)
+    const assetIds = [...new Set(furniturePlacements.map(fp => fp.asset_id))];
+    let assets = [];
+    let assetTags = [];
+    if (assetIds.length > 0) {
+      assets = resultToObjects(db.exec(`SELECT * FROM assets WHERE id IN (${assetIds.join(',')})`));
+      assetTags = resultToObjects(db.exec(`SELECT * FROM asset_tags WHERE asset_id IN (${assetIds.join(',')})`));
+    }
+
+    // Get edit history for this project
+    const editHistory = resultToObjects(db.exec('SELECT * FROM edit_history WHERE project_id = ?', [parseInt(id)]));
+
+    // Get AI generations for this project
+    const aiGenerations = resultToObjects(db.exec('SELECT * FROM ai_generations WHERE project_id = ?', [parseInt(id)]));
+
+    // Build export data
+    const exportData = {
+      version: '1.0',
+      exported_at: new Date().toISOString(),
+      project,
+      floors,
+      rooms,
+      walls,
+      windows,
+      doors,
+      furniture_placements: furniturePlacements,
+      lights,
+      assets,
+      asset_tags: assetTags,
+      edit_history: editHistory,
+      ai_generations: aiGenerations
+    };
+
+    // Create ZIP file
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    // Format date for filename: YYYY-MM-DD
+    const date = new Date().toISOString().split('T')[0];
+    const safeProjectName = project.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const filename = `${safeProjectName}_${date}.zip`;
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    archive.on('error', (err) => {
+      console.error('Archive error:', err);
+      res.status(500).json({ error: 'Failed to create archive' });
+    });
+
+    // Pipe archive to response
+    archive.pipe(res);
+
+    // Add project data JSON
+    archive.append(JSON.stringify(exportData, null, 2), { name: 'project_data.json' });
+
+    // Finalize the archive
+    await archive.finalize();
+
+    console.log(`✓ Exported project ${id} (${project.name}) as ${filename}`);
+  } catch (error) {
+    console.error('Error exporting project:', error);
+    res.status(500).json({ error: 'Failed to export project' });
   }
 });
 
