@@ -59,6 +59,10 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Project name is required' });
     }
 
+    if (name.length > 255) {
+      return res.status(400).json({ error: 'Project name must be 255 characters or less' });
+    }
+
     const db = await getDatabase();
 
     // Insert project

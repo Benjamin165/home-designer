@@ -74,6 +74,11 @@ function ProjectHub() {
       return;
     }
 
+    if (newProjectName.length > 255) {
+      setCreateError('Project name must be 255 characters or less');
+      return;
+    }
+
     try {
       // Mark submission as in progress immediately
       isSubmittingRef.current = true;

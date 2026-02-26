@@ -42,6 +42,7 @@ function Editor() {
   const [error, setError] = useState<string | null>(null);
   const [dimensionText, setDimensionText] = useState<string>('');
   const dragDataRef = useRef<{ startX: number; startZ: number; width: number; depth: number } | null>(null);
+  const creatingDefaultFloorRef = useRef(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -142,8 +143,9 @@ function Editor() {
       const data = await floorsApi.getByProject(projId);
       const floorsList = data.floors || [];
 
-      if (floorsList.length === 0) {
-        // Create default floor
+      if (floorsList.length === 0 && !creatingDefaultFloorRef.current) {
+        // Create default floor (prevent duplicate creation in React Strict Mode)
+        creatingDefaultFloorRef.current = true;
         const newFloorData = await floorsApi.create(projId, {
           name: 'Ground Floor',
           level: 0,
@@ -152,12 +154,16 @@ function Editor() {
         const newFloor = newFloorData.floor;
         setFloors([newFloor]);
         setCurrentFloorId(newFloor.id);
+        creatingDefaultFloorRef.current = false;
       } else {
         setFloors(floorsList);
-        setCurrentFloorId(floorsList[0].id);
+        if (floorsList.length > 0) {
+          setCurrentFloorId(floorsList[0].id);
+        }
       }
     } catch (err) {
       console.error('Error loading floors:', err);
+      creatingDefaultFloorRef.current = false;
     }
   };
 
