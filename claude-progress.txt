@@ -1230,3 +1230,25 @@ Next agent should:
 - Continue with remaining assigned features or pick new ones
 
 ====================
+
+====================
+Session 18: Features #19, #20 - Grid Toggle & Day/Night Lighting
+Date: 2026-02-26
+====================
+
+Completed: Features #19, #20 - Both passing
+
+Feature #19: Grid overlay is visible and toggleable - PASSING
+- Added gridVisible state to editor store
+- Added Grid3x3 toggle button in toolbar
+- Conditionally render Grid in Viewport3D
+- Tested with browser automation, zero errors
+
+Feature #20: Day/night lighting toggle works - PASSING
+- Animated lighting transitions (800ms ease-in-out cubic)
+- Day mode: ambient 0.5, directional 0.8
+- Floating toggle button with Sun/Moon icons
+- Smooth transitions using requestAnimationFrame
+- Tested with browser automation, zero errors
+
+Status: 66/125 features passing (52.8%)
