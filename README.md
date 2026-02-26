@@ -60,7 +60,21 @@ cd home-designer
 
 ### 2. Run the setup script
 
-**On Windows:**
+**On Windows (Easiest Method):**
+
+Simply double-click `install-and-run.bat` in the repository folder. This will automatically:
+- Check for Node.js (with download instructions if not installed)
+- Install all dependencies
+- Initialize the database
+- Start both servers
+- Open the application in your browser
+
+Alternatively, you can run it from the command line:
+```cmd
+install-and-run.bat
+```
+
+**On Windows (Using Git Bash):**
 ```bash
 bash init.sh
 ```
@@ -71,8 +85,8 @@ chmod +x init.sh
 ./init.sh
 ```
 
-The script will:
-- Check Node.js version
+All scripts will:
+- Check Node.js version (20+ required)
 - Install frontend and backend dependencies
 - Initialize the SQLite database
 - Start both development servers
