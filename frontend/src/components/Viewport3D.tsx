@@ -7,6 +7,8 @@ import { furnitureApi } from '../lib/api';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { Sun, Moon } from 'lucide-react';
+import ContextMenu, { type ContextMenuItem } from './ContextMenu';
+import { Armchair, Settings, Trash2, Copy, Eye } from 'lucide-react';
 
 interface DragState {
   isDrawing: boolean;
