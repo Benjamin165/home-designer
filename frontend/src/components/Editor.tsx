@@ -7,6 +7,7 @@ import AssetLibrary from './AssetLibrary';
 import FloorSwitcher from './FloorSwitcher';
 import PropertiesPanel from './PropertiesPanel';
 import SettingsModal from './SettingsModal';
+import { getUnitLabel } from '../lib/units';
 import {
   MousePointer2,
   Square,
@@ -947,7 +948,7 @@ function Editor() {
             <form onSubmit={handleCreateRoomByDimensions}>
               <div className="mb-4">
                 <label htmlFor="room-width" className="block text-sm font-medium text-gray-300 mb-2">
-                  Width (meters) *
+                  Width ({getUnitLabel(unitSystem)}) *
                 </label>
                 <input
                   id="room-width"
@@ -972,7 +973,7 @@ function Editor() {
 
               <div className="mb-4">
                 <label htmlFor="room-length" className="block text-sm font-medium text-gray-300 mb-2">
-                  Length (meters) *
+                  Length ({getUnitLabel(unitSystem)}) *
                 </label>
                 <input
                   id="room-length"
@@ -996,7 +997,7 @@ function Editor() {
 
               <div className="mb-6">
                 <label htmlFor="room-height" className="block text-sm font-medium text-gray-300 mb-2">
-                  Ceiling Height (meters) *
+                  Ceiling Height ({getUnitLabel(unitSystem)}) *
                 </label>
                 <input
                   id="room-height"
