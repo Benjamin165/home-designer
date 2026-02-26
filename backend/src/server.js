@@ -131,6 +131,77 @@ app.get('/api/health/schema', async (req, res) => {
   }
 });
 
+// Debug endpoint to manually trigger database save and verify persistence
+app.post('/api/debug/save-db', async (req, res) => {
+  try {
+    const { getDatabase, saveDatabase } = await import('./db/connection.js');
+    const db = await getDatabase();
+
+    // Get current project count from in-memory database
+    const memResult = db.exec('SELECT COUNT(*) as count, MAX(id) as max_id FROM projects');
+    const inMemory = {
+      count: memResult[0].values[0][0],
+      maxId: memResult[0].values[0][1]
+    };
+
+    // Trigger manual save
+    console.log('Manual save triggered via debug endpoint');
+    saveDatabase();
+    console.log('Save completed');
+
+    // Wait a moment for file system
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Read disk database independently to verify
+    const { readFileSync, existsSync } = await import('fs');
+    const { join, dirname } = await import('path');
+    const { fileURLToPath } = await import('url');
+    const initSqlJs = (await import('sql.js')).default;
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const DB_PATH = join(__dirname, '../database.db');
+
+    if (!existsSync(DB_PATH)) {
+      return res.json({
+        status: 'error',
+        message: 'Database file does not exist on disk',
+        path: DB_PATH
+      });
+    }
+
+    const SQL = await initSqlJs();
+    const buffer = readFileSync(DB_PATH);
+    const diskDb = new SQL.Database(buffer);
+
+    const diskResult = diskDb.exec('SELECT COUNT(*) as count, MAX(id) as max_id FROM projects');
+    const onDisk = {
+      count: diskResult[0].values[0][0],
+      maxId: diskResult[0].values[0][1]
+    };
+
+    diskDb.close();
+
+    const persisted = inMemory.count === onDisk.count && inMemory.maxId === onDisk.maxId;
+
+    res.json({
+      status: persisted ? 'ok' : 'mismatch',
+      message: persisted ? 'Data persisted successfully' : 'Data mismatch between memory and disk',
+      inMemory,
+      onDisk,
+      path: DB_PATH,
+      persisted
+    });
+  } catch (error) {
+    console.error('Error in save-db debug endpoint:', error);
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 // API routes
 app.use('/api/projects', projectsRouter);
 app.use('/api/assets', assetsRouter);

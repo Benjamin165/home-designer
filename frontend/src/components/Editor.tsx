@@ -9,6 +9,7 @@ import {
   Ruler,
   ArrowLeft,
   Save,
+  Edit2,
 } from 'lucide-react';
 
 interface Project {
@@ -29,6 +30,11 @@ function Editor() {
   const [error, setError] = useState<string | null>(null);
   const [dimensionText, setDimensionText] = useState<string>('');
   const dragDataRef = useRef<{ startX: number; startZ: number; width: number; depth: number } | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Zustand store
   const {
@@ -179,6 +185,56 @@ function Editor() {
     setCurrentTool(tool);
   };
 
+  const handleEditClick = () => {
+    if (project) {
+      setEditName(project.name);
+      setEditDescription(project.description || '');
+      setShowEditModal(true);
+      setEditError(null);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setShowEditModal(false);
+    setEditName('');
+    setEditDescription('');
+    setEditError(null);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!editName.trim()) {
+      setEditError('Project name is required');
+      return;
+    }
+
+    if (!project) return;
+
+    try {
+      setEditLoading(true);
+      setEditError(null);
+
+      const data = await projectsApi.update(project.id, {
+        name: editName.trim(),
+        description: editDescription.trim() || undefined,
+      });
+
+      // Update local state
+      setProject(data.project);
+      setShowEditModal(false);
+    } catch (err) {
+      if (err instanceof ApiError && err.userMessage) {
+        setEditError(err.userMessage);
+      } else {
+        setEditError('Failed to update project. Please try again.');
+      }
+      console.error('Error updating project:', err);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -222,11 +278,20 @@ function Editor() {
             >
               <ArrowLeft className="w-6 h-6" />
             </button>
-            <div>
-              <h1 className="text-lg font-semibold text-white">{project.name}</h1>
-              {project.description && (
-                <p className="text-sm text-gray-400">{project.description}</p>
-              )}
+            <div className="flex items-center gap-2">
+              <div>
+                <h1 className="text-lg font-semibold text-white">{project.name}</h1>
+                {project.description && (
+                  <p className="text-sm text-gray-400">{project.description}</p>
+                )}
+              </div>
+              <button
+                onClick={handleEditClick}
+                className="text-gray-400 hover:text-white transition-colors p-1"
+                title="Edit Project Details"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
@@ -318,6 +383,70 @@ function Editor() {
           </div>
         )}
       </main>
+
+      {/* Edit Project Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold text-white mb-4">Edit Project</h2>
+
+            <form onSubmit={handleSaveEdit}>
+              <div className="mb-4">
+                <label htmlFor="edit-project-name" className="block text-sm font-medium text-gray-300 mb-2">
+                  Project Name *
+                </label>
+                <input
+                  id="edit-project-name"
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Living Room Redesign"
+                  autoFocus
+                />
+              </div>
+
+              <div className="mb-6">
+                <label htmlFor="edit-project-description" className="block text-sm font-medium text-gray-300 mb-2">
+                  Description (optional)
+                </label>
+                <textarea
+                  id="edit-project-description"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  rows={3}
+                  placeholder="Describe your project..."
+                />
+              </div>
+
+              {editError && (
+                <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-md" role="alert" aria-live="assertive">
+                  <p className="text-sm text-red-300">{editError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  disabled={editLoading}
+                  className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {editLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
