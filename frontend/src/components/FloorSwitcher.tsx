@@ -10,6 +10,7 @@ interface FloorSwitcherProps {
 function FloorSwitcher({ projectId }: FloorSwitcherProps) {
   const { floors, setFloors, currentFloorId, setCurrentFloorId } = useEditorStore();
   const [isAdding, setIsAdding] = useState(false);
+  const [draggedFloorId, setDraggedFloorId] = useState<number | null>(null);
 
   const handleAddFloor = async () => {
     try {
@@ -61,6 +62,69 @@ function FloorSwitcher({ projectId }: FloorSwitcherProps) {
     setCurrentFloorId(floorId);
   };
 
+  const handleDragStart = (e: React.DragEvent, floorId: number) => {
+    setDraggedFloorId(floorId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetFloorId: number) => {
+    e.preventDefault();
+
+    if (draggedFloorId === null || draggedFloorId === targetFloorId) {
+      setDraggedFloorId(null);
+      return;
+    }
+
+    // Find the indices of the dragged and target floors
+    const draggedIndex = floors.findIndex(f => f.id === draggedFloorId);
+    const targetIndex = floors.findIndex(f => f.id === targetFloorId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedFloorId(null);
+      return;
+    }
+
+    // Reorder the floors array
+    const newFloors = [...floors];
+    const [draggedFloor] = newFloors.splice(draggedIndex, 1);
+    newFloors.splice(targetIndex, 0, draggedFloor);
+
+    // Update order_index for all floors
+    const updatedFloors = newFloors.map((floor, index) => ({
+      ...floor,
+      order_index: index,
+    }));
+
+    // Update local state immediately for responsive UI
+    setFloors(updatedFloors);
+
+    // Update database
+    try {
+      await floorsApi.reorder(
+        updatedFloors.map(floor => ({
+          id: floor.id,
+          order_index: floor.order_index,
+        }))
+      );
+      console.log('Floors reordered successfully');
+    } catch (error) {
+      console.error('Error reordering floors:', error);
+      // Revert to original order on error
+      setFloors(floors);
+    } finally {
+      setDraggedFloorId(null);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedFloorId(null);
+  };
+
   return (
     <div className="fixed right-4 top-24 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-2 z-10 flex flex-col gap-2">
       {/* Floor list */}
@@ -69,13 +133,19 @@ function FloorSwitcher({ projectId }: FloorSwitcherProps) {
           <button
             key={floor.id}
             onClick={() => handleFloorClick(floor.id)}
+            draggable
+            onDragStart={(e) => handleDragStart(e, floor.id)}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, floor.id)}
+            onDragEnd={handleDragEnd}
             className={`
-              px-3 py-2 rounded text-sm font-medium transition-colors text-left
+              px-3 py-2 rounded text-sm font-medium transition-colors text-left cursor-move
               ${
                 currentFloorId === floor.id
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
               }
+              ${draggedFloorId === floor.id ? 'opacity-50' : ''}
             `}
             title={floor.name}
           >

@@ -80,6 +80,31 @@ router.post('/projects/:projectId/floors', async (req, res) => {
   }
 });
 
+// PUT /api/floors/reorder - Reorder floors (must be before /floors/:id)
+router.put('/floors/reorder', async (req, res) => {
+  try {
+    const { floors } = req.body; // Array of {id, order_index}
+
+    if (!Array.isArray(floors)) {
+      return res.status(400).json({ error: 'floors must be an array' });
+    }
+
+    const db = await getDatabase();
+
+    // Update each floor's order_index
+    floors.forEach(({ id, order_index }) => {
+      db.run('UPDATE floors SET order_index = ? WHERE id = ?', [order_index, parseInt(id)]);
+    });
+
+    saveDatabase();
+
+    res.json({ message: 'Floors reordered successfully' });
+  } catch (error) {
+    console.error('Error reordering floors:', error);
+    res.status(500).json({ error: 'Failed to reorder floors' });
+  }
+});
+
 // PUT /api/floors/:id - Update a floor
 router.put('/floors/:id', async (req, res) => {
   try {
@@ -144,31 +169,6 @@ router.delete('/floors/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting floor:', error);
     res.status(500).json({ error: 'Failed to delete floor' });
-  }
-});
-
-// PUT /api/floors/reorder - Reorder floors
-router.put('/floors/reorder', async (req, res) => {
-  try {
-    const { floors } = req.body; // Array of {id, order_index}
-
-    if (!Array.isArray(floors)) {
-      return res.status(400).json({ error: 'floors must be an array' });
-    }
-
-    const db = await getDatabase();
-
-    // Update each floor's order_index
-    floors.forEach(({ id, order_index }) => {
-      db.run('UPDATE floors SET order_index = ? WHERE id = ?', [order_index, parseInt(id)]);
-    });
-
-    saveDatabase();
-
-    res.json({ message: 'Floors reordered successfully' });
-  } catch (error) {
-    console.error('Error reordering floors:', error);
-    res.status(500).json({ error: 'Failed to reorder floors' });
   }
 });
 

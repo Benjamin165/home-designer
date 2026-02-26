@@ -185,6 +185,14 @@ export const floorsApi = {
     });
     return response.json();
   },
+
+  async reorder(floors: Array<{ id: number; order_index: number }>) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/floors/reorder`, {
+      method: 'PUT',
+      body: JSON.stringify({ floors }),
+    });
+    return response.json();
+  },
 };
 
 // Rooms API methods
