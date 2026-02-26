@@ -21,6 +21,8 @@ function Scene() {
   const setCameraPosition = useEditorStore((state) => state.setCameraPosition);
   const cameraPositions = useEditorStore((state) => state.cameraPositions);
 
+  console.log('[DEBUG Scene] Furniture placements:', furniturePlacements);
+
   const [dragState, setDragState] = useState<DragState>({
     isDrawing: false,
     startPoint: null,
@@ -432,6 +434,10 @@ function FurnitureMesh({ furniture }: { furniture: any }) {
   const height = furniture.height || 1;
   const depth = furniture.depth || 1;
 
+  console.log('[DEBUG FurnitureMesh] Rendering furniture:', furniture);
+  console.log('[DEBUG FurnitureMesh] Dimensions:', { width, height, depth });
+  console.log('[DEBUG FurnitureMesh] Position:', [furniture.position_x, furniture.position_y, furniture.position_z]);
+
   return (
     <group
       position={[furniture.position_x, furniture.position_y, furniture.position_z]}
@@ -439,7 +445,7 @@ function FurnitureMesh({ furniture }: { furniture: any }) {
       scale={[furniture.scale_x || 1, furniture.scale_y || 1, furniture.scale_z || 1]}
     >
       <Box args={[width, height, depth]} position={[0, height / 2, 0]}>
-        <meshStandardMaterial color="#8b5cf6" />
+        <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={0.5} />
       </Box>
     </group>
   );

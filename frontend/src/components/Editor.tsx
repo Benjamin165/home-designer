@@ -175,9 +175,11 @@ function Editor() {
     try {
       // Fetch furniture for all rooms
       const allFurniture = [];
+      console.log('[DEBUG] Loading furniture for rooms:', roomsList);
       for (const room of roomsList) {
         try {
           const data = await furnitureApi.getByRoom(room.id);
+          console.log(`[DEBUG] Furniture data for room ${room.id}:`, data);
           if (data.furniture) {
             allFurniture.push(...data.furniture);
           }
@@ -185,6 +187,7 @@ function Editor() {
           console.error(`Error loading furniture for room ${room.id}:`, err);
         }
       }
+      console.log('[DEBUG] Setting furniture placements:', allFurniture);
       setFurniturePlacements(allFurniture);
     } catch (err) {
       console.error('Error loading furniture:', err);
