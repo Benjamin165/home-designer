@@ -91,6 +91,9 @@ function Editor() {
   // Edit history panel visibility
   const [showEditHistory, setShowEditHistory] = useState(true);
 
+  // Copy/paste state
+  const [copiedFurniture, setCopiedFurniture] = useState<any | null>(null);
+
   // Zustand store
   const {
     setProjectId,
@@ -106,6 +109,9 @@ function Editor() {
     unitSystem,
     setUnitSystem,
     setFurniturePlacements,
+    addFurniturePlacement,
+    selectedFurnitureId,
+    addAction,
     gridVisible,
     setGridVisible,
     undo,
@@ -179,7 +185,7 @@ function Editor() {
     };
   }, [unitSystem]);
 
-  // Keyboard shortcuts for undo/redo
+  // Keyboard shortcuts for undo/redo and copy/paste
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
       // Check if Ctrl (or Cmd on Mac) is pressed
@@ -205,12 +211,55 @@ function Editor() {
             console.error('Redo failed:', error);
           }
         }
+      } else if (isCtrl && e.key === 'c') {
+        // Ctrl+C: Copy furniture
+        e.preventDefault();
+        if (selectedFurnitureId) {
+          const furniture = furniturePlacements.find(f => f.id === selectedFurnitureId);
+          if (furniture) {
+            setCopiedFurniture(furniture);
+            console.log('[Copy] Furniture copied:', furniture.asset_name || 'furniture');
+          }
+        }
+      } else if (isCtrl && e.key === 'v') {
+        // Ctrl+V: Paste furniture
+        e.preventDefault();
+        if (copiedFurniture && copiedFurniture.room_id) {
+          try {
+            // Create duplicate with slight offset
+            const data = await furnitureApi.create(copiedFurniture.room_id, {
+              asset_id: copiedFurniture.asset_id,
+              position_x: copiedFurniture.position_x + 1, // Offset by 1 meter
+              position_y: copiedFurniture.position_y,
+              position_z: copiedFurniture.position_z + 1,
+              rotation_x: copiedFurniture.rotation_x,
+              rotation_y: copiedFurniture.rotation_y,
+              rotation_z: copiedFurniture.rotation_z,
+              scale_x: copiedFurniture.scale_x || 1,
+              scale_y: copiedFurniture.scale_y || 1,
+              scale_z: copiedFurniture.scale_z || 1,
+            });
+
+            addFurniturePlacement(data.furniture);
+
+            // Record action in history
+            addAction({
+              type: 'furniture_add',
+              description: `Pasted ${copiedFurniture.asset_name || 'furniture'}`,
+              data: { furniture: data.furniture },
+            });
+
+            console.log('[Paste] Furniture pasted:', data.furniture.id);
+          } catch (error) {
+            console.error('Paste failed:', error);
+          }
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, canUndo, canRedo]);
+  }, [undo, redo, canUndo, canRedo, selectedFurnitureId, furniturePlacements, copiedFurniture, addFurniturePlacement, addAction]);
 
   // Auto-save when data changes
   useEffect(() => {
