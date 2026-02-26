@@ -1178,11 +1178,13 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
   const updateFurniturePlacement = useEditorStore((state) => state.updateFurniturePlacement);
   const currentTool = useEditorStore((state) => state.currentTool);
   const addAction = useEditorStore((state) => state.addAction);
+  const rooms = useEditorStore((state) => state.rooms);
 
   const isSelected = selectedFurnitureId === furniture.id;
   const groupRef = useRef<THREE.Group>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; z: number } | null>(null);
+  const [snappedWall, setSnappedWall] = useState<'north' | 'south' | 'east' | 'west' | null>(null);
 
   console.log('[DEBUG FurnitureMesh] Rendering furniture:', furniture);
   console.log('[DEBUG FurnitureMesh] Dimensions:', { width, height, depth });
@@ -1223,19 +1225,79 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
     // Get the intersection point with the ground plane (y=0)
     const point = e.intersections.find((i: any) => i.object.userData?.isGround);
     if (point) {
-      const newX = point.point.x;
-      const newZ = point.point.z;
+      let newX = point.point.x;
+      let newZ = point.point.z;
+      let newRotationY = furniture.rotation_y || 0;
+      let wallSnap: 'north' | 'south' | 'east' | 'west' | null = null;
 
-      // Update local position immediately for smooth dragging
+      // Feature #36: Snap-to-wall placement
+      // Find the room this furniture belongs to
+      const room = rooms.find(r => r.id === furniture.room_id);
+      if (room) {
+        const roomX = room.position_x || 0;
+        const roomZ = room.position_z || 0;
+        const roomWidth = room.dimensions_json?.width || 4;
+        const roomDepth = room.dimensions_json?.depth || 4;
+
+        // Calculate wall positions (assuming room is centered at roomX, roomZ)
+        const walls = {
+          north: { z: roomZ + roomDepth / 2, normal: [0, 0, -1], rotation: Math.PI },      // +Z wall, faces -Z
+          south: { z: roomZ - roomDepth / 2, normal: [0, 0, 1], rotation: 0 },             // -Z wall, faces +Z
+          east:  { x: roomX + roomWidth / 2, normal: [-1, 0, 0], rotation: -Math.PI / 2 }, // +X wall, faces -X
+          west:  { x: roomX - roomWidth / 2, normal: [1, 0, 0], rotation: Math.PI / 2 },   // -X wall, faces +X
+        };
+
+        const snapDistance = 0.5; // Snap within 0.5 meters of wall
+        const wallOffset = depth / 2 + 0.05; // Place furniture with slight gap from wall
+
+        // Check distance to each wall
+        const northDist = Math.abs(newZ - walls.north.z);
+        const southDist = Math.abs(newZ - walls.south.z);
+        const eastDist = Math.abs(newX - walls.east.x);
+        const westDist = Math.abs(newX - walls.west.x);
+
+        // Find closest wall within snap distance
+        const minDist = Math.min(northDist, southDist, eastDist, westDist);
+
+        if (minDist < snapDistance) {
+          if (minDist === northDist) {
+            // Snap to north wall (+Z)
+            newZ = walls.north.z - wallOffset;
+            newRotationY = walls.north.rotation;
+            wallSnap = 'north';
+          } else if (minDist === southDist) {
+            // Snap to south wall (-Z)
+            newZ = walls.south.z + wallOffset;
+            newRotationY = walls.south.rotation;
+            wallSnap = 'south';
+          } else if (minDist === eastDist) {
+            // Snap to east wall (+X)
+            newX = walls.east.x - wallOffset;
+            newRotationY = walls.east.rotation;
+            wallSnap = 'east';
+          } else if (minDist === westDist) {
+            // Snap to west wall (-X)
+            newX = walls.west.x + wallOffset;
+            newRotationY = walls.west.rotation;
+            wallSnap = 'west';
+          }
+        }
+      }
+
+      setSnappedWall(wallSnap);
+
+      // Update local position and rotation immediately for smooth dragging
       if (groupRef.current) {
         groupRef.current.position.x = newX;
         groupRef.current.position.z = newZ;
+        groupRef.current.rotation.y = newRotationY;
       }
 
       // Update store (but don't save to backend yet)
       updateFurniturePlacement(furniture.id, {
         position_x: newX,
         position_z: newZ,
+        rotation_y: newRotationY,
       });
     }
   };
@@ -1245,11 +1307,13 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
 
     e.stopPropagation();
     setIsDragging(false);
+    setSnappedWall(null);
 
     // Save final position to backend
     if (dragStart) {
       const newX = furniture.position_x;
       const newZ = furniture.position_z;
+      const newRotationY = furniture.rotation_y;
 
       // Only save if position actually changed
       if (Math.abs(newX - dragStart.x) > 0.01 || Math.abs(newZ - dragStart.z) > 0.01) {
@@ -1258,6 +1322,7 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
             position_x: newX,
             position_y: furniture.position_y,
             position_z: newZ,
+            rotation_y: newRotationY,
           });
           console.log('[FurnitureMesh] Position saved to backend:', { x: newX, z: newZ });
 
@@ -1336,6 +1401,13 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
       {isSelected && (
         <Box args={[width + 0.1, height + 0.1, depth + 0.1]} position={[0, height / 2, 0]}>
           <meshBasicMaterial color="#3b82f6" wireframe transparent opacity={0.8} />
+        </Box>
+      )}
+
+      {/* Snap-to-wall indicator - Feature #36 */}
+      {snappedWall && isDragging && (
+        <Box args={[width + 0.2, height + 0.2, depth + 0.2]} position={[0, height / 2, 0]}>
+          <meshBasicMaterial color="#10b981" wireframe transparent opacity={0.6} />
         </Box>
       )}
     </group>
