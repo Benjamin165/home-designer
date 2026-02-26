@@ -1,7 +1,7 @@
 import initSqlJs from 'sql.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { writeFileSync } from 'fs';
+import { writeFileSync, existsSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -13,6 +13,20 @@ console.log('  Database Initialization');
 console.log('========================================');
 console.log(`  Database path: ${DB_PATH}`);
 console.log('');
+
+// Check if database already exists
+if (existsSync(DB_PATH)) {
+  console.log('✓ Database already exists, skipping initialization');
+  console.log('');
+  console.log('========================================');
+  console.log('  ℹ️  Database initialization skipped');
+  console.log('========================================');
+  console.log('');
+  console.log('  To reinitialize the database, delete the file:');
+  console.log(`  ${DB_PATH}`);
+  console.log('');
+  process.exit(0);
+}
 
 // Initialize sql.js
 const SQL = await initSqlJs();
