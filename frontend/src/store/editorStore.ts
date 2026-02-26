@@ -116,6 +116,8 @@ interface EditorState {
   setSelectedRoomId: (id: number | null) => void;
   selectedFurnitureId: number | null;
   setSelectedFurnitureId: (id: number | null) => void;
+  selectedWallId: number | null;
+  setSelectedWallId: (id: number | null) => void;
 
   // Unit system
   unitSystem: 'metric' | 'imperial';
@@ -191,6 +193,9 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   selectedFurnitureId: null,
   setSelectedFurnitureId: (id) => set({ selectedFurnitureId: id }),
+
+  selectedWallId: null,
+  setSelectedWallId: (id) => set({ selectedWallId: id }),
 
   unitSystem: 'metric',
   setUnitSystem: (system) => set({ unitSystem: system }),

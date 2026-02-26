@@ -229,6 +229,22 @@ export const roomsApi = {
   },
 };
 
+// Walls API methods
+export const wallsApi = {
+  async getByRoomId(roomId: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/rooms/${roomId}/walls`);
+    return response.json();
+  },
+
+  async update(id: number, data: { color?: string; material?: string }) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/walls/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+};
+
 // Assets API methods
 export const assetsApi = {
   async getAll(params?: { category?: string; search?: string; limit?: number; favorite?: boolean }) {

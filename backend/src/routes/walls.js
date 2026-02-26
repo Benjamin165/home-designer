@@ -3,6 +3,36 @@ import { getDatabase, saveDatabase } from '../db/connection.js';
 
 const router = express.Router();
 
+// GET /api/rooms/:roomId/walls - Get all walls for a room
+router.get('/rooms/:roomId/walls', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const db = await getDatabase();
+
+    const result = db.exec(
+      'SELECT * FROM walls WHERE room_id = ? ORDER BY id ASC',
+      [parseInt(roomId)]
+    );
+
+    let walls = [];
+    if (result.length > 0 && result[0].values.length > 0) {
+      const columns = result[0].columns;
+      walls = result[0].values.map(row => {
+        const wall = {};
+        columns.forEach((col, idx) => {
+          wall[col] = row[idx];
+        });
+        return wall;
+      });
+    }
+
+    res.json({ walls });
+  } catch (error) {
+    console.error('Error fetching walls:', error);
+    res.status(500).json({ error: 'Failed to fetch walls' });
+  }
+});
+
 // POST /api/rooms/:roomId/walls - Add a wall segment to a room
 router.post('/rooms/:roomId/walls', async (req, res) => {
   try {

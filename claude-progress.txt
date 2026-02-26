@@ -1619,3 +1619,34 @@ Next priorities:
 - Continue implementing remaining features
 - Additional editor and UI features
 - Material and customization systems
+
+====================
+Session 25: Features #33, #78, #83 - Furniture Selection and Movement
+Date: 2026-02-26
+====================
+
+Completed: Features #33, #78, #83 - All passing
+
+Feature #33: Select and move furniture object in 3D space - PASSING
+- Added selectedFurnitureId state to editorStore
+- Implemented click-to-select in FurnitureMesh
+- Added blue wireframe selection indicator
+- Implemented drag-to-move with pointer events
+- Position saved to backend via furniture API
+- Zero console errors
+
+Feature #78: Furniture position updates reflect in database - PASSING
+- Position changes saved via PUT /api/furniture/:id
+- Verified persistence across page reloads
+- Tested with API calls and database queries
+
+Feature #83: Selected object remains selected after undo/redo - PASSING
+- Added furniture_move action type
+- Updated undo/redo to handle movement
+- Preserve selectedFurnitureId during undo/redo
+- Record movement in history via addAction
+
+Status: 92/125 features passing (73.6%)
+- Started session: 88/125 (70.4%)
+- Completed this session: +3 features
+
