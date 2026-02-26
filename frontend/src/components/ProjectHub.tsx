@@ -21,6 +21,9 @@ function ProjectHub() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -91,6 +94,38 @@ function ProjectHub() {
     setNewProjectName('');
     setNewProjectDescription('');
     setCreateError(null);
+  };
+
+  const handleDeleteClick = (project: Project, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click navigation
+    setProjectToDelete(project);
+    setShowDeleteModal(true);
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false);
+    setProjectToDelete(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!projectToDelete) return;
+
+    try {
+      setDeleteLoading(true);
+      await projectsApi.delete(projectToDelete.id);
+
+      // Remove from local state
+      setProjects(projects.filter(p => p.id !== projectToDelete.id));
+
+      // Close modal
+      setShowDeleteModal(false);
+      setProjectToDelete(null);
+    } catch (err) {
+      console.error('Error deleting project:', err);
+      // Could add error handling UI here if needed
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   return (
@@ -206,41 +241,67 @@ function ProjectHub() {
             {projects.map((project) => (
               <div
                 key={project.id}
-                onClick={() => navigate(`/editor/${project.id}`)}
-                className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer overflow-hidden"
+                className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow overflow-hidden relative group"
               >
-                <div className="h-48 bg-gray-200 flex items-center justify-center">
-                  {project.thumbnail_path ? (
-                    <img
-                      src={project.thumbnail_path}
-                      alt={project.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <svg
-                      className="h-16 w-16 text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                <div
+                  onClick={() => navigate(`/editor/${project.id}`)}
+                  className="cursor-pointer"
+                >
+                  <div className="h-48 bg-gray-200 flex items-center justify-center">
+                    {project.thumbnail_path ? (
+                      <img
+                        src={project.thumbnail_path}
+                        alt={project.name}
+                        className="w-full h-full object-cover"
                       />
-                    </svg>
-                  )}
+                    ) : (
+                      <svg
+                        className="h-16 w-16 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-lg font-medium text-gray-900">{project.name}</h3>
+                    {project.description && (
+                      <p className="mt-1 text-sm text-gray-500">{project.description}</p>
+                    )}
+                    <p className="mt-2 text-xs text-gray-400">
+                      Updated {new Date(project.updated_at).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
-                <div className="p-4">
-                  <h3 className="text-lg font-medium text-gray-900">{project.name}</h3>
-                  {project.description && (
-                    <p className="mt-1 text-sm text-gray-500">{project.description}</p>
-                  )}
-                  <p className="mt-2 text-xs text-gray-400">
-                    Updated {new Date(project.updated_at).toLocaleDateString()}
-                  </p>
-                </div>
+
+                {/* Delete button - appears on hover */}
+                <button
+                  onClick={(e) => handleDeleteClick(project, e)}
+                  className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  aria-label={`Delete ${project.name}`}
+                  title="Delete project"
+                >
+                  <svg
+                    className="h-5 w-5 text-red-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                </button>
               </div>
             ))}
           </div>
@@ -307,6 +368,39 @@ function ProjectHub() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && projectToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Delete Project</h2>
+
+            <p className="text-gray-700 mb-6">
+              Are you sure you want to delete <strong>"{projectToDelete.name}"</strong>?
+              This action cannot be undone.
+            </p>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={handleCancelDelete}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {deleteLoading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}
