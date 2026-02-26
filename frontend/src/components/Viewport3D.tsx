@@ -1296,6 +1296,9 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
     setDragStart(null);
   };
 
+  // Check if this is a lighting asset
+  const isLightingAsset = furniture.category === 'Lighting';
+
   return (
     <group
       ref={groupRef}
@@ -1307,8 +1310,24 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
       onPointerUp={handlePointerUp}
     >
       <Box args={[width, height, depth]} position={[0, height / 2, 0]}>
-        <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={0.5} />
+        <meshStandardMaterial
+          color={isLightingAsset ? "#ffeb3b" : "#ff0000"}
+          emissive={isLightingAsset ? "#ffeb3b" : "#ff0000"}
+          emissiveIntensity={isLightingAsset ? 0.8 : 0.5}
+        />
       </Box>
+
+      {/* Add actual light source if this is a lighting asset */}
+      {isLightingAsset && (
+        <pointLight
+          position={[0, height / 2, 0]}
+          intensity={2}
+          distance={10}
+          decay={2}
+          color="#fff5e6"
+          castShadow
+        />
+      )}
 
       {/* Selection indicator - wireframe box */}
       {isSelected && (
