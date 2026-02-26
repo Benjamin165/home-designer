@@ -549,3 +549,104 @@ Feature #49: Search assets by name - IMPLEMENTED
 Feature #80: Asset search uses database queries - IMPLEMENTED
 
 Status: 36/125 features passing (28.8%)
+
+====================
+Session 12: Features #58, #59, #123 - Export/Import System
+Date: 2026-02-26
+====================
+
+Completed: Features #58, #59, #123 - All passing
+
+Feature #58: Project export as ZIP backup - PASSING
+- Implemented backend export endpoint (POST /api/projects/:id/export)
+- Exports all project data to ZIP file:
+  * Project metadata (name, description, settings)
+  * All floors with correct order
+  * All rooms with dimensions and materials
+  * All furniture placements with positions
+  * Walls, windows, doors, lights
+  * Asset references and tags
+  * Edit history and AI generations
+- ZIP filename format: projectname_YYYY-MM-DD.zip
+- Added Export button to Editor toolbar with Download icon
+- Tested end-to-end with browser automation
+- Zero console errors
+
+Feature #59: Project import restores from ZIP backup - PASSING
+- Implemented backend import endpoint (POST /api/projects/import)
+- Accepts ZIP file upload via multipart/form-data
+- Extracts and validates project_data.json
+- Creates new project with "(Imported)" suffix
+- Restores all data with correct relationships:
+  * Maps old IDs to new IDs for foreign keys
+  * Preserves floor hierarchy (project → floors → rooms)
+  * Restores furniture placements with correct room references
+  * Maintains wall, window, door relationships
+- Added Import Project button to Project Hub header
+- File picker for ZIP upload
+- Automatically reloads project list after import
+- Tested end-to-end: export → import → verify data
+- Zero console errors
+
+Feature #123: Multi-step workflow - Import project and verify data integrity - PASSING
+- Created comprehensive test project:
+  * 2 floors (Ground Floor, First Floor)
+  * 3 rooms (Living Room 6x5m, Kitchen 4x3m, Master Bedroom 5x4m)
+  * 5 furniture items (Sofa, Table, Bookshelf, Bed, Chair)
+  * Custom floor materials (hardwood, tile, carpet)
+  * Custom colors for each room
+- Exported project as ZIP (integration_test_project_2026-02-26.zip)
+- Deleted original project
+- Imported from ZIP
+- Verified complete data restoration:
+  * All 2 floors restored correctly
+  * All 3 rooms with exact dimensions and materials
+  * All 5 furniture items in correct positions and rooms
+  * All relationships (floor→room→furniture) preserved
+  * Project fully functional in editor
+- Zero console errors throughout workflow
+
+Key accomplishments:
+- Complete backup/restore system for projects
+- Production-ready export/import with data integrity
+- All foreign key relationships preserved during import
+- Comprehensive end-to-end testing of full workflow
+- Zero data loss during export-import cycle
+
+Files modified:
+1. backend/src/routes/projects.js
+   - Added POST /api/projects/:id/export endpoint
+   - Added POST /api/projects/import endpoint with multer
+   - Implemented ZIP creation with archiver
+   - Implemented ZIP extraction with unzipper
+   - ID mapping logic for relationships during import
+
+2. frontend/src/lib/api.ts
+   - Added projectsApi.export() method
+   - Added projectsApi.import() method with FormData
+
+3. frontend/src/components/Editor.tsx
+   - Added Export button with Download icon
+   - Implemented export handler with ZIP download
+   - Filename format: projectname_YYYY-MM-DD.zip
+
+4. frontend/src/components/ProjectHub.tsx
+   - Added Import Project button
+   - Implemented file picker for ZIP upload
+   - Auto-refresh project list after import
+
+Backend dependencies installed:
+- unzipper (already had archiver and multer)
+
+Test scripts created:
+- verify-export-zip.js - Verify ZIP contents
+- create-test-project-123.js - Create comprehensive test data
+
+Status: 38/125 features passing (30.4%)
+
+Next priorities:
+- Additional editor features (undo/redo, settings)
+- Material and lighting customization
+- Window and door placement
+- AI integration features
+- Performance optimization
