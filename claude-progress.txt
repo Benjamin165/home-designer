@@ -1252,3 +1252,17 @@ Feature #20: Day/night lighting toggle works - PASSING
 - Tested with browser automation, zero errors
 
 Status: 66/125 features passing (52.8%)
+
+====================
+Session 18: Feature #16 - Context Menu Implementation  
+Date: 2026-02-26
+====================
+
+Completed: Feature #16 - Context menu appears on right-click in 3D viewport - PASSING
+
+Implementation: Created ContextMenu component with React Portal, integrated with Viewport3D using custom events.
+Right-click detection in Scene and FurnitureMesh components. Menu shows appropriate options for empty space or furniture.
+Fixed event timing issue to prevent immediate close. Zero console errors. End-to-end testing with Playwright.
+
+Status: 69/125 features passing (55.2%)
+
