@@ -431,3 +431,33 @@ export const aiApi = {
     return response.json();
   }
 };
+
+/**
+ * Export API methods
+ */
+export const exportApi = {
+  /**
+   * Export floor plan as PDF
+   */
+  async exportFloorPlan(projectId: number, floorId?: number, format: 'pdf' = 'pdf'): Promise<Blob> {
+    const response = await fetchWithErrorHandling(
+      `${API_BASE_URL}/export/floorplan`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ projectId, floorId, format }),
+      },
+      60000 // 60 second timeout for PDF generation
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(
+        errorData.error || 'Failed to export floor plan',
+        response.status,
+        'Failed to generate floor plan. Please try again.'
+      );
+    }
+
+    return response.blob();
+  }
+};

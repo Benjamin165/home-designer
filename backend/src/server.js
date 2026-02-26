@@ -11,6 +11,7 @@ import wallsRouter from './routes/walls.js';
 import furnitureRouter from './routes/furniture.js';
 import settingsRouter from './routes/settings.js';
 import aiRouter from './routes/ai.js';
+import exportRouter from './routes/export.js';
 import { resetDatabase } from './db/connection.js';
 
 dotenv.config();
@@ -213,9 +214,7 @@ app.use('/api', wallsRouter); // Handles /api/rooms/:roomId/walls and /api/walls
 app.use('/api', furnitureRouter); // Handles /api/rooms/:roomId/furniture and /api/furniture/:id
 app.use('/api', settingsRouter); // Handles /api/settings
 app.use('/api/ai', aiRouter); // Handles /api/ai/*
-
-// Placeholder routes for other endpoints (will be implemented later)
-// app.use('/api/export', exportRouter);
+app.use('/api/export', exportRouter); // Handles /api/export/*
 
 // Error handling middleware
 app.use((err, req, res, next) => {

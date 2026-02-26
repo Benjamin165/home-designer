@@ -7,6 +7,7 @@ import AssetLibrary from './AssetLibrary';
 import FloorSwitcher from './FloorSwitcher';
 import PropertiesPanel from './PropertiesPanel';
 import SettingsModal from './SettingsModal';
+import ExportModal from './ExportModal';
 import EditHistory from './EditHistory';
 import { getUnitLabel } from '../lib/units';
 import {
@@ -68,6 +69,7 @@ function Editor() {
 
   // Export state
   const [isExporting, setIsExporting] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   // Floor plan upload state
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -940,13 +942,12 @@ function Editor() {
             </button>
 
             <button
-              onClick={handleExport}
-              disabled={isExporting}
-              className="px-3 py-2 flex items-center gap-2 text-sm bg-gray-700 text-gray-200 rounded hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Export Project as ZIP"
+              onClick={() => setExportModalOpen(true)}
+              className="px-3 py-2 flex items-center gap-2 text-sm bg-gray-700 text-gray-200 rounded hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="Export Options"
             >
               <Download className="w-4 h-4" />
-              {isExporting ? 'Exporting...' : 'Export'}
+              Export
             </button>
 
             <button
@@ -1272,6 +1273,18 @@ function Editor() {
 
       {/* Settings Modal */}
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+
+      {/* Export Modal */}
+      {project && (
+        <ExportModal
+          isOpen={exportModalOpen}
+          onClose={() => setExportModalOpen(false)}
+          projectId={project.id}
+          projectName={project.name}
+          currentFloorId={currentFloorId}
+          currentFloorName={floors.find(f => f.id === currentFloorId)?.name}
+        />
+      )}
     </div>
   );
 }
