@@ -421,7 +421,7 @@ function ProjectHub() {
                       <p className="mt-1 text-sm text-gray-500">{project.description}</p>
                     )}
                     <p className="mt-2 text-xs text-gray-500">
-                      Updated {new Date(project.updated_at).toLocaleDateString()}
+                      Updated {new Date(project.updated_at).toLocaleString()}
                     </p>
                   </div>
                 </div>

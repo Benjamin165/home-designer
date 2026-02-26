@@ -493,13 +493,16 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
 
   // Emit dimension updates for HTML overlay
   useEffect(() => {
+    console.log('[DEBUG Dimensions] useEffect triggered, previewDims:', previewDims);
     if (previewDims) {
+      console.log('[DEBUG Dimensions] Dispatching updateDimensions:', previewDims.width, 'x', previewDims.depth);
       window.dispatchEvent(
         new CustomEvent('updateDimensions', {
           detail: { width: previewDims.width, depth: previewDims.depth },
         })
       );
     } else {
+      console.log('[DEBUG Dimensions] Dispatching clearDimensions');
       window.dispatchEvent(new CustomEvent('clearDimensions'));
     }
   }, [previewDims?.width, previewDims?.depth]);
@@ -1847,10 +1850,12 @@ function DimensionOverlay() {
 
   useEffect(() => {
     const handleDimensionUpdate = (event: any) => {
+      console.log('[DEBUG DimensionOverlay] Received updateDimensions:', event.detail);
       setDimensions(event.detail);
     };
 
     const handleDimensionClear = () => {
+      console.log('[DEBUG DimensionOverlay] Received clearDimensions');
       setDimensions(null);
     };
 
