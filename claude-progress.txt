@@ -1386,3 +1386,18 @@ Next priorities:
 - Additional editor features
 - Material and lighting systems
 - Advanced AI features (photo-to-room, URL import)
+
+====================
+Session 21: Feature #60 - Unit System Toggle
+Date: 2026-02-26
+====================
+
+Completed: Feature #60 - Toggle unit system between metric and imperial - PASSING
+
+Status: 73/125 features passing (58.4%)
+
+Implementation: Connected SettingsModal to editor store. Most infrastructure was already
+implemented by another agent. This session added the missing link between settings and state.
+
+Verification: Toggled between metric/imperial, verified form labels and dimensions update.
+Zero console errors throughout testing.
