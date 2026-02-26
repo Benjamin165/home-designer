@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { projectsApi, floorsApi, roomsApi, ApiError } from '../lib/api';
+import { projectsApi, floorsApi, roomsApi, furnitureApi, ApiError } from '../lib/api';
 import { useEditorStore } from '../store/editorStore';
 import Viewport3D from './Viewport3D';
+import AssetLibrary from './AssetLibrary';
+import FloorSwitcher from './FloorSwitcher';
 import {
   MousePointer2,
   Square,
@@ -50,6 +52,7 @@ function Editor() {
     addRoom,
     unitSystem,
     setUnitSystem,
+    setFurniturePlacements,
   } = useEditorStore();
 
   useEffect(() => {
@@ -135,9 +138,33 @@ function Editor() {
 
     try {
       const data = await roomsApi.getByFloor(currentFloorId);
-      setRooms(data.rooms || []);
+      const roomsList = data.rooms || [];
+      setRooms(roomsList);
+
+      // Load furniture for all rooms
+      await loadFurniture(roomsList);
     } catch (err) {
       console.error('Error loading rooms:', err);
+    }
+  };
+
+  const loadFurniture = async (roomsList: any[]) => {
+    try {
+      // Fetch furniture for all rooms
+      const allFurniture = [];
+      for (const room of roomsList) {
+        try {
+          const data = await furnitureApi.getByRoom(room.id);
+          if (data.furniture) {
+            allFurniture.push(...data.furniture);
+          }
+        } catch (err) {
+          console.error(`Error loading furniture for room ${room.id}:`, err);
+        }
+      }
+      setFurniturePlacements(allFurniture);
+    } catch (err) {
+      console.error('Error loading furniture:', err);
     }
   };
 
@@ -341,47 +368,56 @@ function Editor() {
         </div>
       </header>
 
-      {/* Editor Content with 3D Viewport */}
-      <main className="flex-1 relative overflow-hidden">
-        <Viewport3D />
+      {/* Editor Content with Asset Library and 3D Viewport */}
+      <main className="flex-1 relative overflow-hidden flex">
+        {/* Left Sidebar - Asset Library */}
+        <AssetLibrary />
 
-        {/* Info panel */}
-        <div className="absolute bottom-4 left-4 bg-gray-800/90 text-white px-4 py-2 rounded-lg text-sm">
-          <div className="flex items-center gap-4">
-            <div>
-              <span className="text-gray-400">Tool: </span>
-              <span className="font-medium capitalize">
-                {currentTool === 'draw-wall' ? 'Draw Wall' : currentTool}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-400">Rooms: </span>
-              <span className="font-medium">{rooms.length}</span>
-            </div>
-            <div>
-              <span className="text-gray-400">Floor: </span>
-              <span className="font-medium">
-                {floors.find((f) => f.id === currentFloorId)?.name || 'None'}
-              </span>
+        {/* 3D Viewport */}
+        <div className="flex-1 relative">
+          <Viewport3D />
+
+          {/* Floor Switcher */}
+          {project && <FloorSwitcher projectId={project.id} />}
+
+          {/* Info panel */}
+          <div className="absolute bottom-4 left-4 bg-gray-800/90 text-white px-4 py-2 rounded-lg text-sm">
+            <div className="flex items-center gap-4">
+              <div>
+                <span className="text-gray-400">Tool: </span>
+                <span className="font-medium capitalize">
+                  {currentTool === 'draw-wall' ? 'Draw Wall' : currentTool}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-400">Rooms: </span>
+                <span className="font-medium">{rooms.length}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Floor: </span>
+                <span className="font-medium">
+                  {floors.find((f) => f.id === currentFloorId)?.name || 'None'}
+                </span>
+              </div>
             </div>
           </div>
+
+          {/* Instructions overlay */}
+          {currentTool === 'draw-wall' && rooms.length === 0 && (
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
+              <div className="bg-gray-800/95 text-white px-8 py-6 rounded-xl shadow-2xl max-w-md">
+                <Square className="w-12 h-12 mx-auto mb-4 text-blue-400" />
+                <h3 className="text-xl font-semibold mb-2">Draw Your First Room</h3>
+                <p className="text-gray-300 mb-4">
+                  Click and drag in the viewport to create a rectangular room. Dimensions will be displayed in real-time.
+                </p>
+                <p className="text-sm text-gray-400">
+                  Minimum size: 0.5m × 0.5m
+                </p>
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Instructions overlay */}
-        {currentTool === 'draw-wall' && rooms.length === 0 && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-            <div className="bg-gray-800/95 text-white px-8 py-6 rounded-xl shadow-2xl max-w-md">
-              <Square className="w-12 h-12 mx-auto mb-4 text-blue-400" />
-              <h3 className="text-xl font-semibold mb-2">Draw Your First Room</h3>
-              <p className="text-gray-300 mb-4">
-                Click and drag in the viewport to create a rectangular room. Dimensions will be displayed in real-time.
-              </p>
-              <p className="text-sm text-gray-400">
-                Minimum size: 0.5m × 0.5m
-              </p>
-            </div>
-          </div>
-        )}
       </main>
 
       {/* Edit Project Modal */}

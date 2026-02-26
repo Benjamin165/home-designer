@@ -1,7 +1,8 @@
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid } from '@react-three/drei';
+import { OrbitControls, Grid, Box } from '@react-three/drei';
 import { useState, useRef, useEffect } from 'react';
 import { useEditorStore } from '../store/editorStore';
+import { furnitureApi } from '../lib/api';
 import * as THREE from 'three';
 
 interface DragState {
@@ -13,13 +14,60 @@ interface DragState {
 function Scene() {
   const currentTool = useEditorStore((state) => state.currentTool);
   const rooms = useEditorStore((state) => state.rooms);
+  const furniturePlacements = useEditorStore((state) => state.furniturePlacements);
+  const draggingAsset = useEditorStore((state) => state.draggingAsset);
   const [dragState, setDragState] = useState<DragState>({
     isDrawing: false,
     startPoint: null,
     currentPoint: null,
   });
+  const [furniturePreview, setFurniturePreview] = useState<{
+    asset: any;
+    position: { x: number; z: number };
+  } | null>(null);
 
   const planeRef = useRef<THREE.Mesh>(null);
+
+  // Handle dragging asset from library
+  useEffect(() => {
+    const handleDragEnter = (e: DragEvent) => {
+      if (!draggingAsset) return;
+
+      try {
+        const data = e.dataTransfer?.getData('application/json');
+        if (data) {
+          const asset = JSON.parse(data);
+          setFurniturePreview({
+            asset,
+            position: { x: 0, z: 0 },
+          });
+        }
+      } catch (error) {
+        console.error('Error parsing drag data:', error);
+      }
+    };
+
+    const handleDragLeave = () => {
+      if (!draggingAsset) {
+        setFurniturePreview(null);
+      }
+    };
+
+    window.addEventListener('dragenter', handleDragEnter);
+    window.addEventListener('dragleave', handleDragLeave);
+
+    return () => {
+      window.removeEventListener('dragenter', handleDragEnter);
+      window.removeEventListener('dragleave', handleDragLeave);
+    };
+  }, [draggingAsset]);
+
+  // Clear preview when dragging stops
+  useEffect(() => {
+    if (!draggingAsset) {
+      setFurniturePreview(null);
+    }
+  }, [draggingAsset]);
 
   // Handle mouse events for wall drawing
   const handlePointerDown = (event: any) => {
@@ -34,50 +82,72 @@ function Scene() {
   };
 
   const handlePointerMove = (event: any) => {
-    if (currentTool !== 'draw-wall' || !dragState.isDrawing) return;
+    if (currentTool === 'draw-wall' && dragState.isDrawing) {
+      const point = event.point;
+      setDragState((prev) => ({
+        ...prev,
+        currentPoint: { x: point.x, z: point.z },
+      }));
+    }
 
-    const point = event.point;
-    setDragState((prev) => ({
-      ...prev,
-      currentPoint: { x: point.x, z: point.z },
-    }));
+    // Handle furniture preview when dragging from library
+    if (furniturePreview) {
+      const point = event.point;
+      setFurniturePreview((prev) =>
+        prev ? { ...prev, position: { x: point.x, z: point.z } } : null
+      );
+    }
   };
 
   const handlePointerUp = (event: any) => {
-    if (currentTool !== 'draw-wall' || !dragState.isDrawing) return;
+    if (currentTool === 'draw-wall' && dragState.isDrawing) {
+      const point = event.point;
+      const startPoint = dragState.startPoint!;
 
-    const point = event.point;
-    const startPoint = dragState.startPoint!;
+      // Calculate dimensions
+      const width = Math.abs(point.x - startPoint.x);
+      const depth = Math.abs(point.z - startPoint.z);
 
-    // Calculate dimensions
-    const width = Math.abs(point.x - startPoint.x);
-    const depth = Math.abs(point.z - startPoint.z);
+      // Only create room if dimensions are reasonable (> 0.5m)
+      if (width > 0.5 && depth > 0.5) {
+        // Calculate center position
+        const centerX = (startPoint.x + point.x) / 2;
+        const centerZ = (startPoint.z + point.z) / 2;
 
-    // Only create room if dimensions are reasonable (> 0.5m)
-    if (width > 0.5 && depth > 0.5) {
-      // Calculate center position
-      const centerX = (startPoint.x + point.x) / 2;
-      const centerZ = (startPoint.z + point.z) / 2;
+        // Emit custom event with room data
+        const roomData = {
+          width,
+          depth,
+          position_x: centerX,
+          position_z: centerZ,
+        };
 
-      // Emit custom event with room data
-      const roomData = {
-        width,
-        depth,
-        position_x: centerX,
-        position_z: centerZ,
-      };
+        window.dispatchEvent(
+          new CustomEvent('createRoom', { detail: roomData })
+        );
+      }
 
-      window.dispatchEvent(
-        new CustomEvent('createRoom', { detail: roomData })
-      );
+      // Reset drag state
+      setDragState({
+        isDrawing: false,
+        startPoint: null,
+        currentPoint: null,
+      });
     }
 
-    // Reset drag state
-    setDragState({
-      isDrawing: false,
-      startPoint: null,
-      currentPoint: null,
-    });
+    // Handle furniture drop
+    if (furniturePreview) {
+      const point = event.point;
+      window.dispatchEvent(
+        new CustomEvent('dropFurniture', {
+          detail: {
+            asset: furniturePreview.asset,
+            position: { x: point.x, y: 0, z: point.z },
+          },
+        })
+      );
+      setFurniturePreview(null);
+    }
   };
 
   // Calculate preview rectangle dimensions
@@ -171,6 +241,19 @@ function Scene() {
       {rooms.map((room) => (
         <RoomMesh key={room.id} room={room} />
       ))}
+
+      {/* Render furniture */}
+      {furniturePlacements.map((furniture) => (
+        <FurnitureMesh key={furniture.id} furniture={furniture} />
+      ))}
+
+      {/* Furniture preview while dragging */}
+      {furniturePreview && (
+        <FurniturePreview
+          asset={furniturePreview.asset}
+          position={furniturePreview.position}
+        />
+      )}
 
       {/* Camera controls */}
       <OrbitControls
@@ -289,9 +372,116 @@ function RoomMesh({ room }: { room: any }) {
   );
 }
 
-export default function Viewport3D() {
+// Furniture mesh component
+function FurnitureMesh({ furniture }: { furniture: any }) {
+  const width = furniture.width || 1;
+  const height = furniture.height || 1;
+  const depth = furniture.depth || 1;
+
   return (
-    <div className="w-full h-full bg-gray-950">
+    <group
+      position={[furniture.position_x, furniture.position_y, furniture.position_z]}
+      rotation={[furniture.rotation_x || 0, furniture.rotation_y || 0, furniture.rotation_z || 0]}
+      scale={[furniture.scale_x || 1, furniture.scale_y || 1, furniture.scale_z || 1]}
+    >
+      <Box args={[width, height, depth]} position={[0, height / 2, 0]}>
+        <meshStandardMaterial color="#8b5cf6" />
+      </Box>
+    </group>
+  );
+}
+
+// Furniture preview component (while dragging)
+function FurniturePreview({ asset, position }: { asset: any; position: { x: number; z: number } }) {
+  const width = asset.width || 1;
+  const height = asset.height || 1;
+  const depth = asset.depth || 1;
+
+  return (
+    <group position={[position.x, 0, position.z]}>
+      <Box args={[width, height, depth]} position={[0, height / 2, 0]}>
+        <meshStandardMaterial color="#3b82f6" opacity={0.5} transparent />
+      </Box>
+    </group>
+  );
+}
+
+export default function Viewport3D() {
+  const draggingAsset = useEditorStore((state) => state.draggingAsset);
+  const currentFloorId = useEditorStore((state) => state.currentFloorId);
+  const rooms = useEditorStore((state) => state.rooms);
+  const addFurniturePlacement = useEditorStore((state) => state.addFurniturePlacement);
+
+  // Listen for furniture drop events from the 3D scene
+  useEffect(() => {
+    const handleDropFurniture = async (event: any) => {
+      const { asset, position } = event.detail;
+
+      // Find which room the furniture was dropped into
+      const targetRoom = rooms.find((room) => {
+        const roomX = room.position_x;
+        const roomZ = room.position_z;
+        const roomWidth = room.dimensions_json.width / 2;
+        const roomDepth = room.dimensions_json.depth / 2;
+
+        return (
+          position.x >= roomX - roomWidth &&
+          position.x <= roomX + roomWidth &&
+          position.z >= roomZ - roomDepth &&
+          position.z <= roomZ + roomDepth
+        );
+      });
+
+      if (!targetRoom) {
+        console.warn('Furniture dropped outside of any room');
+        return;
+      }
+
+      try {
+        // Create furniture placement via API
+        const data = await furnitureApi.create(targetRoom.id, {
+          asset_id: asset.id,
+          position_x: position.x,
+          position_y: position.y,
+          position_z: position.z,
+          rotation_x: 0,
+          rotation_y: 0,
+          rotation_z: 0,
+          scale_x: 1,
+          scale_y: 1,
+          scale_z: 1,
+        });
+
+        // Add to store
+        addFurniturePlacement(data.furniture);
+        console.log('Furniture placed:', data.furniture);
+      } catch (error) {
+        console.error('Error placing furniture:', error);
+      }
+    };
+
+    window.addEventListener('dropFurniture', handleDropFurniture);
+    return () => window.removeEventListener('dropFurniture', handleDropFurniture);
+  }, [rooms, addFurniturePlacement]);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (draggingAsset) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    // The actual drop is handled by the 3D scene's raycasting
+  };
+
+  return (
+    <div
+      className="w-full h-full bg-gray-950"
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       <Canvas
         camera={{
           position: [10, 10, 10],

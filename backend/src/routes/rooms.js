@@ -248,7 +248,8 @@ router.get('/rooms/:id/furniture', async (req, res) => {
     const db = await getDatabase();
 
     const result = db.exec(
-      `SELECT fp.*, a.name as asset_name, a.category, a.model_path, a.thumbnail_path
+      `SELECT fp.*, a.name as asset_name, a.category, a.model_path, a.thumbnail_path,
+              a.width, a.height, a.depth
        FROM furniture_placements fp
        JOIN assets a ON fp.asset_id = a.id
        WHERE fp.room_id = ?
