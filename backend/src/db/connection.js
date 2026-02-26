@@ -34,8 +34,14 @@ export async function getDatabase() {
   // Always ensure foreign keys are enabled (defensive approach)
   // This is a lightweight check that ensures FK enforcement even if connection was cached
   const fkCheck = db.exec('PRAGMA foreign_keys');
-  if (fkCheck.length === 0 || fkCheck[0].values[0][0] !== 1) {
+  const fkEnabled = fkCheck.length > 0 && fkCheck[0].values[0][0] === 1;
+
+  if (!fkEnabled) {
+    console.log('⚠️  Foreign keys were disabled, enabling now...');
     db.exec('PRAGMA foreign_keys = ON');
+    const verifyCheck = db.exec('PRAGMA foreign_keys');
+    const nowEnabled = verifyCheck.length > 0 && verifyCheck[0].values[0][0] === 1;
+    console.log(`✓ Foreign keys enabled: ${nowEnabled}`);
   }
 
   return db;
