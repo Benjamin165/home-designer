@@ -120,6 +120,41 @@ router.post('/floors/:floorId/rooms', async (req, res) => {
         }
       }
 
+      // Create 4 walls for the room (front, back, left, right)
+      const dims = room.dimensions_json;
+      const width = dims.width || 4;
+      const depth = dims.depth || 4;
+      const roomHeight = room.ceiling_height || 2.8;
+      const defaultWallColor = '#e5e7eb';
+
+      // Front wall (+Z direction)
+      db.run(
+        `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, color)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [room.id, -width / 2, depth / 2, width / 2, depth / 2, roomHeight, defaultWallColor]
+      );
+
+      // Back wall (-Z direction)
+      db.run(
+        `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, color)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [room.id, -width / 2, -depth / 2, width / 2, -depth / 2, roomHeight, defaultWallColor]
+      );
+
+      // Left wall (-X direction)
+      db.run(
+        `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, color)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [room.id, -width / 2, -depth / 2, -width / 2, depth / 2, roomHeight, defaultWallColor]
+      );
+
+      // Right wall (+X direction)
+      db.run(
+        `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, color)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [room.id, width / 2, -depth / 2, width / 2, depth / 2, roomHeight, defaultWallColor]
+      );
+
       saveDatabase();
       res.status(201).json({ room });
     } else {

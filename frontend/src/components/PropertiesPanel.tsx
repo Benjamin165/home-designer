@@ -1,7 +1,7 @@
 import { useEditorStore } from '../store/editorStore';
 import { X, ChevronRight, ChevronLeft, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { roomsApi, furnitureApi } from '../lib/api';
+import { roomsApi, furnitureApi, wallsApi } from '../lib/api';
 import { toast } from 'sonner';
 import DeleteRoomDialog from './DeleteRoomDialog';
 import { formatLength, formatArea } from '../lib/units';
@@ -11,11 +11,14 @@ interface PropertiesPanelProps {
 }
 
 function PropertiesPanel({ projectName }: PropertiesPanelProps) {
-  const { selectedRoomId, setSelectedRoomId, rooms, floors, currentFloorId, furniturePlacements, setRooms, setFurniturePlacements, unitSystem } = useEditorStore();
+  const { selectedRoomId, setSelectedRoomId, selectedWallId, setSelectedWallId, rooms, floors, currentFloorId, furniturePlacements, setRooms, setFurniturePlacements, unitSystem } = useEditorStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ceilingHeight, setCeilingHeight] = useState<string>('');
   const [ceilingHeightError, setCeilingHeightError] = useState<string>('');
+  const [selectedWall, setSelectedWall] = useState<any>(null);
+  const [wallColor, setWallColor] = useState<string>('#e5e7eb');
+  const [roomName, setRoomName] = useState<string>('');
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
   const currentFloor = floors.find((f) => f.id === currentFloorId);
@@ -23,13 +26,53 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
   // Get furniture in the selected room
   const roomFurniture = furniturePlacements.filter((f) => f.room_id === selectedRoomId);
 
-  // Initialize ceiling height when room selection changes
+  // Initialize ceiling height and room name when room selection changes
   useEffect(() => {
     if (selectedRoom) {
       setCeilingHeight(selectedRoom.ceiling_height.toString());
       setCeilingHeightError('');
+      setRoomName(selectedRoom.name || '');
     }
   }, [selectedRoom?.id]);
+
+  // Fetch wall data when a wall is selected
+  useEffect(() => {
+    const fetchWall = async () => {
+      if (selectedWallId && selectedRoomId) {
+        try {
+          const response = await wallsApi.getByRoomId(selectedRoomId);
+          const wall = response.walls.find((w: any) => w.id === selectedWallId);
+          if (wall) {
+            setSelectedWall(wall);
+            setWallColor(wall.color || '#e5e7eb');
+          }
+        } catch (error) {
+          console.error('Error fetching wall:', error);
+        }
+      } else {
+        setSelectedWall(null);
+      }
+    };
+    fetchWall();
+  }, [selectedWallId, selectedRoomId]);
+
+  // Handle wall color change
+  const handleWallColorChange = async (color: string) => {
+    if (!selectedWall) return;
+
+    setWallColor(color);
+
+    try {
+      await wallsApi.update(selectedWall.id, { color });
+      toast.success('Wall color updated');
+
+      // Trigger re-fetch of walls by updating selected wall
+      setSelectedWall({ ...selectedWall, color });
+    } catch (error) {
+      console.error('Error updating wall color:', error);
+      toast.error('Failed to update wall color');
+    }
+  };
 
   // Handle ceiling height change with validation
   const handleCeilingHeightChange = (value: string) => {
@@ -89,6 +132,35 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
     } catch (error) {
       console.error('Error updating ceiling height:', error);
       toast.error('Failed to update ceiling height', {
+        description: 'Please try again',
+      });
+    }
+  };
+
+  // Handle room name save
+  const handleRoomNameSave = async () => {
+    if (!selectedRoom) return;
+
+    const trimmedName = roomName.trim();
+
+    try {
+      // Update via API
+      await roomsApi.update(selectedRoom.id, {
+        name: trimmedName || null,
+      });
+
+      // Update local state
+      const updatedRooms = rooms.map((r) =>
+        r.id === selectedRoom.id ? { ...r, name: trimmedName || null } : r
+      );
+      setRooms(updatedRooms);
+
+      toast.success('Room name updated', {
+        description: trimmedName || 'Name cleared',
+      });
+    } catch (error) {
+      console.error('Error updating room name:', error);
+      toast.error('Failed to update room name', {
         description: 'Please try again',
       });
     }
@@ -179,7 +251,20 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
               {/* Room Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1">Name</label>
-                <div className="text-white font-medium">{selectedRoom.name || 'Unnamed Room'}</div>
+                <input
+                  type="text"
+                  value={roomName}
+                  onChange={(e) => setRoomName(e.target.value)}
+                  onBlur={handleRoomNameSave}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleRoomNameSave();
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  placeholder="Unnamed Room"
+                />
               </div>
 
               {/* Dimensions */}
@@ -239,6 +324,37 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
                   </div>
                 </div>
               </div>
+
+              {/* Wall Color Picker - shown when wall is selected */}
+              {selectedWall && (
+                <div className="border-t border-gray-700 pt-4">
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Wall Color <span className="text-blue-400">(Selected Wall)</span>
+                  </label>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="color"
+                      value={wallColor}
+                      onChange={(e) => handleWallColorChange(e.target.value)}
+                      className="h-10 w-20 rounded cursor-pointer bg-gray-700 border border-gray-600"
+                    />
+                    <input
+                      type="text"
+                      value={wallColor}
+                      onChange={(e) => handleWallColorChange(e.target.value)}
+                      className="flex-1 px-3 py-2 bg-gray-700/50 border border-gray-600 rounded text-white font-mono text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                      placeholder="#e5e7eb"
+                      maxLength={7}
+                    />
+                  </div>
+                  <button
+                    onClick={() => setSelectedWallId(null)}
+                    className="mt-2 w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors"
+                  >
+                    Deselect Wall
+                  </button>
+                </div>
+              )}
 
               {/* Floor Material Selector */}
               <div>

@@ -3,7 +3,8 @@ import { OrbitControls, Grid, Box } from '@react-three/drei';
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useEditorStore } from '../store/editorStore';
-import { furnitureApi, roomsApi } from '../lib/api';
+import { furnitureApi, roomsApi, wallsApi } from '../lib/api';
+import { WallMesh } from './WallMesh';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { Sun, Moon } from 'lucide-react';
@@ -646,6 +647,22 @@ function RoomMesh({ room }: { room: any }) {
   } | null>(null);
 
   const [tempDimensions, setTempDimensions] = useState<{ width: number; depth: number } | null>(null);
+  const [walls, setWalls] = useState<any[]>([]);
+
+  // Fetch walls for this room
+  useEffect(() => {
+    const fetchWalls = async () => {
+      try {
+        const response = await wallsApi.getByRoomId(room.id);
+        setWalls(response.walls || []);
+      } catch (error) {
+        console.error('Error fetching walls:', error);
+        // If walls don't exist, we'll fall back to rendering default walls
+        setWalls([]);
+      }
+    };
+    fetchWalls();
+  }, [room.id]);
 
   const width = tempDimensions?.width || room.dimensions_json.width || 4;
   const depth = tempDimensions?.depth || room.dimensions_json.depth || 4;
@@ -796,29 +813,39 @@ function RoomMesh({ room }: { room: any }) {
       </mesh>
 
       {/* Walls */}
-      {/* Front wall */}
-      <mesh position={[0, height / 2, depth / 2]}>
-        <boxGeometry args={[width, height, 0.15]} />
-        <meshStandardMaterial color="#e5e7eb" />
-      </mesh>
+      {walls.length > 0 ? (
+        // Render walls from database
+        walls.map((wall) => (
+          <WallMesh key={wall.id} wall={wall} roomPosX={posX} roomPosZ={posZ} />
+        ))
+      ) : (
+        // Fallback: render default walls if no database walls exist
+        <>
+          {/* Front wall */}
+          <mesh position={[0, height / 2, depth / 2]}>
+            <boxGeometry args={[width, height, 0.15]} />
+            <meshStandardMaterial color="#e5e7eb" />
+          </mesh>
 
-      {/* Back wall */}
-      <mesh position={[0, height / 2, -depth / 2]}>
-        <boxGeometry args={[width, height, 0.15]} />
-        <meshStandardMaterial color="#e5e7eb" />
-      </mesh>
+          {/* Back wall */}
+          <mesh position={[0, height / 2, -depth / 2]}>
+            <boxGeometry args={[width, height, 0.15]} />
+            <meshStandardMaterial color="#e5e7eb" />
+          </mesh>
 
-      {/* Left wall */}
-      <mesh position={[-width / 2, height / 2, 0]}>
-        <boxGeometry args={[0.15, height, depth]} />
-        <meshStandardMaterial color="#e5e7eb" />
-      </mesh>
+          {/* Left wall */}
+          <mesh position={[-width / 2, height / 2, 0]}>
+            <boxGeometry args={[0.15, height, depth]} />
+            <meshStandardMaterial color="#e5e7eb" />
+          </mesh>
 
-      {/* Right wall */}
-      <mesh position={[width / 2, height / 2, 0]}>
-        <boxGeometry args={[0.15, height, depth]} />
-        <meshStandardMaterial color="#e5e7eb" />
-      </mesh>
+          {/* Right wall */}
+          <mesh position={[width / 2, height / 2, 0]}>
+            <boxGeometry args={[0.15, height, depth]} />
+            <meshStandardMaterial color="#e5e7eb" />
+          </mesh>
+        </>
+      )}
 
       {/* Draggable edge handles - only show when room is selected */}
       {isSelected && currentTool === 'select' && (
@@ -1077,6 +1104,14 @@ export default function Viewport3D() {
     type: 'empty',
   });
 
+  // Room hover tooltip state
+  const [roomTooltip, setRoomTooltip] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    room: any;
+  } | null>(null);
+
   // Listen for context menu events from the 3D scene
   useEffect(() => {
     const handleCanvasContextMenuEvent = (event: any) => {
@@ -1094,6 +1129,30 @@ export default function Viewport3D() {
 
     window.addEventListener('canvasContextMenu', handleCanvasContextMenuEvent);
     return () => window.removeEventListener('canvasContextMenu', handleCanvasContextMenuEvent);
+  }, []);
+
+  // Listen for room hover events
+  useEffect(() => {
+    const handleRoomHover = (event: any) => {
+      const { clientX, clientY, room } = event.detail;
+      setRoomTooltip({
+        visible: true,
+        x: clientX,
+        y: clientY,
+        room,
+      });
+    };
+
+    const handleRoomHoverEnd = () => {
+      setRoomTooltip(null);
+    };
+
+    window.addEventListener('roomHover', handleRoomHover);
+    window.addEventListener('roomHoverEnd', handleRoomHoverEnd);
+    return () => {
+      window.removeEventListener('roomHover', handleRoomHover);
+      window.removeEventListener('roomHoverEnd', handleRoomHoverEnd);
+    };
   }, []);
 
   // Listen for furniture drop events from the 3D scene
