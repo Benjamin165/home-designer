@@ -24,6 +24,7 @@ function ProjectHub() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
@@ -120,6 +121,7 @@ function ProjectHub() {
   const handleCancelDelete = () => {
     setShowDeleteModal(false);
     setProjectToDelete(null);
+    setDeleteError(null);
   };
 
   const handleConfirmDelete = async () => {
@@ -127,6 +129,7 @@ function ProjectHub() {
 
     try {
       setDeleteLoading(true);
+      setDeleteError(null);
       await projectsApi.delete(projectToDelete.id);
 
       // Remove from local state
@@ -136,8 +139,12 @@ function ProjectHub() {
       setShowDeleteModal(false);
       setProjectToDelete(null);
     } catch (err) {
+      if (err instanceof ApiError && err.userMessage) {
+        setDeleteError(err.userMessage);
+      } else {
+        setDeleteError('Failed to delete project. It may have already been deleted.');
+      }
       console.error('Error deleting project:', err);
-      // Could add error handling UI here if needed
     } finally {
       setDeleteLoading(false);
     }
@@ -454,6 +461,12 @@ function ProjectHub() {
               Are you sure you want to delete <strong>"{projectToDelete.name}"</strong>?
               This action cannot be undone.
             </p>
+
+            {deleteError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md" role="alert" aria-live="assertive">
+                <p className="text-sm text-red-600">{deleteError}</p>
+              </div>
+            )}
 
             <div className="flex gap-3 justify-end">
               <button
