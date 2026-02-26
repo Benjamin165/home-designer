@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, Check, Loader2 } from 'lucide-react';
 import { settingsApi } from '../lib/api';
 import { toast } from 'sonner';
+import { useEditorStore } from '../store/editorStore';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -19,6 +20,8 @@ interface Settings {
 }
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+  const setUnitSystem = useEditorStore((state) => state.setUnitSystem);
+
   const [settings, setSettings] = useState<Settings>({
     unit_system: 'metric',
     render_quality: 'high',
@@ -58,6 +61,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     setSaving(true);
     try {
       await settingsApi.update(settings);
+
+      // Update the editor store with the new unit system
+      if (settings.unit_system === 'metric' || settings.unit_system === 'imperial') {
+        setUnitSystem(settings.unit_system);
+      }
+
       toast.success('Settings saved successfully');
       onClose();
     } catch (error) {
