@@ -373,9 +373,19 @@ function RoomMesh({ room }: { room: any }) {
   const height = room.ceiling_height || 2.8;
   const posX = room.position_x || 0;
   const posZ = room.position_z || 0;
+  const setSelectedRoomId = useEditorStore((state) => state.setSelectedRoomId);
+  const currentTool = useEditorStore((state) => state.currentTool);
+
+  const handleClick = (e: any) => {
+    // Only select room when using select tool
+    if (currentTool === 'select') {
+      e.stopPropagation();
+      setSelectedRoomId(room.id);
+    }
+  };
 
   return (
-    <group position={[posX, 0, posZ]}>
+    <group position={[posX, 0, posZ]} onClick={handleClick}>
       {/* Floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
         <planeGeometry args={[width, depth]} />

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { assetsApi } from '../lib/api';
 import { useEditorStore } from '../store/editorStore';
-import { Package, Sofa, Lightbulb, Flower2, Frame, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Package, Sofa, Lightbulb, Flower2, Frame, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 
 interface Asset {
   id: number;
@@ -27,6 +27,7 @@ export default function AssetLibrary() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { setDraggingAsset } = useEditorStore();
@@ -64,10 +65,10 @@ export default function AssetLibrary() {
   // Get unique categories
   const categories = ['All', ...new Set(assets.map((a) => a.category))];
 
-  // Filter assets
-  const filteredAssets = selectedCategory
-    ? assets.filter((a) => a.category === selectedCategory)
-    : assets;
+  // Filter assets by category and search query
+  const filteredAssets = assets
+    .filter((a) => !selectedCategory || a.category === selectedCategory)
+    .filter((a) => !searchQuery || a.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <div className={`h-full bg-gray-800 border-r border-gray-700 flex flex-col transition-all duration-300 ${
@@ -133,6 +134,29 @@ export default function AssetLibrary() {
             </button>
           );
         })}
+      </div>
+
+      {/* Search bar */}
+      <div className="px-4 py-2 border-b border-gray-700">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search assets..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-gray-700 text-white pl-10 pr-8 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-white transition-colors"
+              title="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Asset grid */}

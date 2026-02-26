@@ -5,6 +5,7 @@ import { useEditorStore } from '../store/editorStore';
 import Viewport3D from './Viewport3D';
 import AssetLibrary from './AssetLibrary';
 import FloorSwitcher from './FloorSwitcher';
+import PropertiesPanel from './PropertiesPanel';
 import {
   MousePointer2,
   Square,
@@ -546,6 +547,9 @@ function Editor() {
 
           {/* Floor Switcher */}
           {project && <FloorSwitcher projectId={project.id} />}
+
+          {/* Properties Panel */}
+          <PropertiesPanel />
 
           {/* Info panel */}
           <div className="absolute bottom-4 left-4 bg-gray-800/90 text-white px-4 py-2 rounded-lg text-sm">
