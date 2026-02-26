@@ -22,6 +22,7 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
   const [roomName, setRoomName] = useState<string>('');
   const [isNarrowScreen, setIsNarrowScreen] = useState(false);
   const [furnitureRotation, setFurnitureRotation] = useState<string>('0');
+  const [furnitureScale, setFurnitureScale] = useState<string>('1.0');
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
   const currentFloor = floors.find((f) => f.id === currentFloorId);
@@ -83,6 +84,10 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
       // Convert radians to degrees for display
       const degrees = ((selectedFurniture.rotation_y || 0) * 180 / Math.PI);
       setFurnitureRotation(degrees.toFixed(1));
+
+      // Initialize scale (uniform scale - we use scale_x as the primary value)
+      const scale = selectedFurniture.scale_x || 1.0;
+      setFurnitureScale(scale.toFixed(2));
     }
   }, [selectedFurniture?.id]);
 
@@ -147,6 +152,82 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
     } catch (error) {
       console.error('Error rotating furniture:', error);
       toast.error('Failed to rotate furniture');
+    }
+  };
+
+  // Handle furniture scale change
+  const handleFurnitureScaleChange = (scale: string) => {
+    setFurnitureScale(scale);
+  };
+
+  // Handle furniture scale save
+  const handleFurnitureScaleSave = async () => {
+    if (!selectedFurniture) return;
+
+    const scaleValue = parseFloat(furnitureScale);
+    if (isNaN(scaleValue)) {
+      toast.error('Please enter a valid scale value');
+      return;
+    }
+
+    if (scaleValue <= 0) {
+      toast.error('Scale must be greater than 0');
+      return;
+    }
+
+    if (scaleValue > 10) {
+      toast.error('Scale cannot exceed 10x');
+      return;
+    }
+
+    try {
+      // Apply uniform scale to all axes
+      await furnitureApi.update(selectedFurniture.id, {
+        scale_x: scaleValue,
+        scale_y: scaleValue,
+        scale_z: scaleValue,
+      });
+
+      // Update local state
+      updateFurniturePlacement(selectedFurniture.id, {
+        scale_x: scaleValue,
+        scale_y: scaleValue,
+        scale_z: scaleValue,
+      });
+
+      toast.success('Furniture scaled', {
+        description: `Scaled to ${scaleValue}x`
+      });
+    } catch (error) {
+      console.error('Error updating furniture scale:', error);
+      toast.error('Failed to scale furniture');
+    }
+  };
+
+  // Quick scale furniture by preset values
+  const handleQuickScale = async (scaleValue: number) => {
+    if (!selectedFurniture) return;
+
+    try {
+      await furnitureApi.update(selectedFurniture.id, {
+        scale_x: scaleValue,
+        scale_y: scaleValue,
+        scale_z: scaleValue,
+      });
+
+      // Update local state
+      updateFurniturePlacement(selectedFurniture.id, {
+        scale_x: scaleValue,
+        scale_y: scaleValue,
+        scale_z: scaleValue,
+      });
+
+      setFurnitureScale(scaleValue.toFixed(2));
+
+      toast.success(`Scaled to ${scaleValue}x`);
+    } catch (error) {
+      console.error('Error scaling furniture:', error);
+      toast.error('Failed to scale furniture');
     }
   };
 
@@ -458,6 +539,56 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
                   >
                     <RotateCw className="w-4 h-4" />
                     180°
+                  </button>
+                </div>
+              </div>
+
+              {/* Scale (Feature #35) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Scale</label>
+                <div className="flex gap-2 items-center mb-3">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    max="10"
+                    value={furnitureScale}
+                    onChange={(e) => handleFurnitureScaleChange(e.target.value)}
+                    onBlur={handleFurnitureScaleSave}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleFurnitureScaleSave();
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 bg-gray-700/50 border border-gray-600 rounded text-white font-mono focus:outline-none focus:border-blue-500 transition-colors"
+                    placeholder="1.0"
+                  />
+                  <span className="text-gray-400 text-sm">×</span>
+                </div>
+
+                {/* Quick Scale Buttons */}
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => handleQuickScale(0.5)}
+                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors"
+                    title="Scale to 0.5x"
+                  >
+                    0.5×
+                  </button>
+                  <button
+                    onClick={() => handleQuickScale(1.0)}
+                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors"
+                    title="Reset to 1.0x"
+                  >
+                    1.0×
+                  </button>
+                  <button
+                    onClick={() => handleQuickScale(1.5)}
+                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors"
+                    title="Scale to 1.5x"
+                  >
+                    1.5×
                   </button>
                 </div>
               </div>

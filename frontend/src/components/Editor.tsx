@@ -1129,7 +1129,7 @@ function Editor() {
 
           {/* Instructions overlay */}
           {currentTool === 'draw-wall' && rooms.length === 0 && (
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
               <div className="bg-gray-800/95 text-white px-8 py-6 rounded-xl shadow-2xl max-w-md">
                 <Square className="w-12 h-12 mx-auto mb-4 text-blue-400" />
                 <h3 className="text-xl font-semibold mb-2">Draw Your First Room</h3>

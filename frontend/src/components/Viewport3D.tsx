@@ -496,7 +496,10 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
     const pointer = new THREE.Vector2();
 
     const handleCanvasPointerDown = (e: PointerEvent) => {
-      console.log('[DEBUG handleCanvasPointerDown] Called! Button:', e.button);
+      console.log('[DEBUG handleCanvasPointerDown] Called! Button:', e.button, 'Tool:', currentTool);
+
+      // Only handle when draw-wall tool is active
+      if (currentTool !== 'draw-wall') return;
 
       // Only handle left-click
       if (e.button !== 0) return;
@@ -689,9 +692,9 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0, 0]}
         userData={{ isGround: true }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
+        onPointerDown={currentTool !== 'draw-wall' ? handlePointerDown : undefined}
+        onPointerMove={currentTool !== 'draw-wall' ? handlePointerMove : undefined}
+        onPointerUp={currentTool !== 'draw-wall' ? handlePointerUp : undefined}
       >
         <planeGeometry args={[100, 100]} />
         <meshBasicMaterial transparent opacity={0.001} depthWrite={false} />
