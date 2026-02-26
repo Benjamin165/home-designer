@@ -44,6 +44,14 @@ function Editor() {
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
+  // Create Room by Dimensions modal state
+  const [showDimensionsModal, setShowDimensionsModal] = useState(false);
+  const [roomWidth, setRoomWidth] = useState('5.0');
+  const [roomLength, setRoomLength] = useState('4.0');
+  const [roomHeight, setRoomHeight] = useState('2.8');
+  const [dimensionsError, setDimensionsError] = useState<string | null>(null);
+  const [dimensionsLoading, setDimensionsLoading] = useState(false);
+
   // Zustand store
   const {
     setProjectId,
@@ -265,6 +273,93 @@ function Editor() {
       console.error('Error updating project:', err);
     } finally {
       setEditLoading(false);
+    }
+  };
+
+  const handleOpenDimensionsModal = () => {
+    setShowDimensionsModal(true);
+    setRoomWidth('5.0');
+    setRoomLength('4.0');
+    setRoomHeight('2.8');
+    setDimensionsError(null);
+  };
+
+  const handleCloseDimensionsModal = () => {
+    setShowDimensionsModal(false);
+    setRoomWidth('5.0');
+    setRoomLength('4.0');
+    setRoomHeight('2.8');
+    setDimensionsError(null);
+  };
+
+  const handleCreateRoomByDimensions = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate inputs
+    const width = parseFloat(roomWidth);
+    const length = parseFloat(roomLength);
+    const height = parseFloat(roomHeight);
+
+    if (isNaN(width) || width <= 0) {
+      setDimensionsError('Width must be a positive number');
+      return;
+    }
+
+    if (isNaN(length) || length <= 0) {
+      setDimensionsError('Length must be a positive number');
+      return;
+    }
+
+    if (isNaN(height) || height <= 0) {
+      setDimensionsError('Height must be a positive number');
+      return;
+    }
+
+    if (width < 0.5 || length < 0.5) {
+      setDimensionsError('Minimum room size is 0.5m × 0.5m');
+      return;
+    }
+
+    if (!currentFloorId) {
+      setDimensionsError('No floor selected');
+      return;
+    }
+
+    try {
+      setDimensionsLoading(true);
+      setDimensionsError(null);
+
+      // Create room at center position (0, 0)
+      const roomData = {
+        name: `Room ${rooms.length + 1}`,
+        dimensions_json: {
+          width,
+          depth: length,
+        },
+        position_x: 0,
+        position_y: 0,
+        position_z: 0,
+        ceiling_height: height,
+        floor_color: '#d1d5db',
+        ceiling_color: '#f3f4f6',
+      };
+
+      const data = await roomsApi.create(currentFloorId, roomData);
+      addRoom(data.room);
+
+      console.log('Room created by dimensions:', data.room);
+
+      // Close modal
+      setShowDimensionsModal(false);
+    } catch (err) {
+      if (err instanceof ApiError && err.userMessage) {
+        setDimensionsError(err.userMessage);
+      } else {
+        setDimensionsError('Failed to create room. Please try again.');
+      }
+      console.error('Error creating room by dimensions:', err);
+    } finally {
+      setDimensionsLoading(false);
     }
   };
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { assetsApi } from '../lib/api';
 import { useEditorStore } from '../store/editorStore';
-import { Package, Sofa, Lightbulb, Flower2, Frame } from 'lucide-react';
+import { Package, Sofa, Lightbulb, Flower2, Frame, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Asset {
   id: number;
@@ -28,6 +28,7 @@ export default function AssetLibrary() {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const { setDraggingAsset } = useEditorStore();
 
   useEffect(() => {
@@ -69,14 +70,39 @@ export default function AssetLibrary() {
     : assets;
 
   return (
-    <div className="h-full bg-gray-800 border-r border-gray-700 flex flex-col w-80">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-700">
-        <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-          <Package className="w-5 h-5" />
-          Asset Library
-        </h2>
-      </div>
+    <div className={`h-full bg-gray-800 border-r border-gray-700 flex flex-col transition-all duration-300 ${
+      isCollapsed ? 'w-12' : 'w-80'
+    }`}>
+      {isCollapsed ? (
+        // Collapsed state - just show expand button
+        <div className="flex flex-col items-center py-3">
+          <button
+            onClick={() => setIsCollapsed(false)}
+            className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+            title="Expand Asset Library"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+          <div className="mt-4 writing-mode-vertical text-gray-400 text-sm font-medium" style={{ writingMode: 'vertical-rl' }}>
+            Assets
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              Asset Library
+            </h2>
+            <button
+              onClick={() => setIsCollapsed(true)}
+              className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+              title="Collapse Asset Library"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </div>
 
       {/* Category tabs */}
       <div className="px-2 py-2 border-b border-gray-700 flex gap-1 overflow-x-auto">
@@ -169,12 +195,14 @@ export default function AssetLibrary() {
         )}
       </div>
 
-      {/* Help text */}
-      <div className="px-4 py-3 border-t border-gray-700 bg-gray-750">
-        <p className="text-xs text-gray-400">
-          💡 Drag items from the library into the 3D viewport to place them
-        </p>
-      </div>
+          {/* Help text */}
+          <div className="px-4 py-3 border-t border-gray-700 bg-gray-750">
+            <p className="text-xs text-gray-400">
+              💡 Drag items from the library into the 3D viewport to place them
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }
