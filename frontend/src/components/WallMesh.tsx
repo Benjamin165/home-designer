@@ -18,9 +18,10 @@ interface WallMeshProps {
   wall: Wall;
   roomPosX: number;
   roomPosZ: number;
+  isCurrentFloor?: boolean;
 }
 
-export function WallMesh({ wall, roomPosX, roomPosZ }: WallMeshProps) {
+export function WallMesh({ wall, roomPosX, roomPosZ, isCurrentFloor = true }: WallMeshProps) {
   const selectedWallId = useEditorStore((state) => state.selectedWallId);
   const setSelectedWallId = useEditorStore((state) => state.setSelectedWallId);
   const currentTool = useEditorStore((state) => state.currentTool);
@@ -92,6 +93,8 @@ export function WallMesh({ wall, roomPosX, roomPosZ }: WallMeshProps) {
         metalness={matProps.metalness}
         emissive={isSelected ? '#3b82f6' : '#000000'}
         emissiveIntensity={isSelected ? 0.3 : 0}
+        transparent={!isCurrentFloor}
+        opacity={isCurrentFloor ? 1.0 : 0.3}
       />
     </mesh>
   );

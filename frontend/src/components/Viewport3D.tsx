@@ -544,7 +544,11 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
 
       {/* Render actual rooms */}
       {rooms.map((room) => (
-        <RoomMesh key={room.id} room={room} />
+        <RoomMesh
+          key={room.id}
+          room={room}
+          isCurrentFloor={room.floor_id === currentFloorId}
+        />
       ))}
 
       {/* Render furniture */}
@@ -630,7 +634,7 @@ function DimensionLabel({ width, depth }: { width: number; depth: number }) {
 }
 
 // Room mesh component with draggable walls
-function RoomMesh({ room }: { room: any }) {
+function RoomMesh({ room, isCurrentFloor = true }: { room: any; isCurrentFloor?: boolean }) {
   const [dragState, setDragState] = useState<{
     isDragging: boolean;
     edge: 'front' | 'back' | 'left' | 'right' | null;
@@ -821,20 +825,33 @@ function RoomMesh({ room }: { room: any }) {
                 return 0.5;
             }
           })()}
+          transparent={!isCurrentFloor}
+          opacity={isCurrentFloor ? 1.0 : 0.3}
         />
       </mesh>
 
       {/* Ceiling */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, height, 0]}>
         <planeGeometry args={[width, depth]} />
-        <meshStandardMaterial color={room.ceiling_color || "#f3f4f6"} side={THREE.DoubleSide} />
+        <meshStandardMaterial
+          color={room.ceiling_color || "#f3f4f6"}
+          side={THREE.DoubleSide}
+          transparent={!isCurrentFloor}
+          opacity={isCurrentFloor ? 1.0 : 0.3}
+        />
       </mesh>
 
       {/* Walls */}
       {walls.length > 0 ? (
         // Render walls from database
         walls.map((wall) => (
-          <WallMesh key={wall.id} wall={wall} roomPosX={posX} roomPosZ={posZ} />
+          <WallMesh
+            key={wall.id}
+            wall={wall}
+            roomPosX={posX}
+            roomPosZ={posZ}
+            isCurrentFloor={isCurrentFloor}
+          />
         ))
       ) : (
         // Fallback: render default walls if no database walls exist
