@@ -1,4 +1,31 @@
 {
+  "name": "home-designer",
+  "version": "0.1.0",
+  "description": "Open-source, self-hosted 3D interior design application for visualizing apartment and house interiors with AI-powered features",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/home-designer.git"
+  },
+  "keywords": [
+    "3d",
+    "interior-design",
+    "home-designer",
+    "three.js",
+    "react",
+    "room-planner",
+    "floor-plan",
+    "furniture",
+    "visualization",
+    "self-hosted",
+    "ai-powered"
+  ],
+  "license": "MIT",
+  "author": "Home Designer Contributors",
+  "bugs": {
+    "url": "https://github.com/yourusername/home-designer/issues"
+  },
+  "homepage": "https://github.com/yourusername/home-designer#readme",
   "dependencies": {
     "better-sqlite3": "^12.6.2",
     "unzipper": "^0.12.3"

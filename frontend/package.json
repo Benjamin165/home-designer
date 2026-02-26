@@ -1,12 +1,35 @@
 {
   "name": "home-designer-frontend",
   "version": "0.1.0",
+  "description": "React + TypeScript frontend for Home Designer - 3D interior design application with Three.js visualization",
+  "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/home-designer.git",
+    "directory": "frontend"
+  },
+  "keywords": [
+    "3d",
+    "interior-design",
+    "home-designer",
+    "three.js",
+    "react",
+    "room-planner",
+    "react-three-fiber",
+    "typescript"
+  ],
+  "license": "MIT",
+  "author": "Home Designer Contributors",
+  "bugs": {
+    "url": "https://github.com/yourusername/home-designer/issues"
+  },
+  "homepage": "https://github.com/yourusername/home-designer#readme",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directs --max-warnings 0"
   },
   "dependencies": {
     "@react-three/drei": "^9.92.0",
