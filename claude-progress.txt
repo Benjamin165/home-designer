@@ -411,3 +411,28 @@ Status: 21/125 features passing (16.8%)
 Session 9: Features #11, #112, #121 - Navigation & Sorting Verification
 Date: 2026-02-26
 ====================
+
+Completed: Features #11, #112, #121 - All passing
+
+Feature #11: Navigation between Project Hub and Editor works - PASSING
+- Verified bidirectional navigation using React Router BrowserRouter
+- Hub to Editor: Click project card navigates to /editor/{id}
+- Editor to Hub: Back to Projects button navigates to /
+- Zero console errors during navigation
+
+Feature #112: Date sorting works correctly across timezone boundaries - PASSING
+- Created 3 test projects with timed intervals to verify sorting
+- Confirmed timestamps stored in ISO 8601 format (YYYY-MM-DD HH:MM:SS)
+- Verified SQLite CURRENT_TIMESTAMP uses UTC
+- Server-side SQL ORDER BY ensures timezone-independent sorting
+- Implementation is timezone-safe: ISO 8601 UTC + server-side sorting
+
+Feature #121: Back button works correctly after navigation - PASSING
+- Tested complete browser history navigation
+- Hub to Editor: / to /editor/12
+- Browser back button: /editor/12 to /
+- Browser forward button: / to /editor/12
+- BrowserRouter properly manages browser history
+- Zero console errors during back/forward navigation
+
+Status: 24/125 features passing (19.2%)
