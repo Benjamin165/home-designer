@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { assetsApi } from '../lib/api';
 import { useEditorStore } from '../store/editorStore';
-import { Package, Sofa, Lightbulb, Flower2, Frame, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { Package, Sofa, Lightbulb, Flower2, Frame, ChevronLeft, ChevronRight, Search, X, Sparkles } from 'lucide-react';
+import AIGenerationModal from './AIGenerationModal';
 
 interface Asset {
   id: number;
@@ -30,6 +31,7 @@ export default function AssetLibrary() {
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
   const { setDraggingAsset } = useEditorStore();
 
   useEffect(() => {
@@ -135,6 +137,17 @@ export default function AssetLibrary() {
         })}
       </div>
 
+      {/* Generate from Photo button */}
+      <div className="px-4 py-2 border-b border-gray-700">
+        <button
+          onClick={() => setShowAIModal(true)}
+          className="w-full px-3 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all flex items-center justify-center gap-2"
+        >
+          <Sparkles className="w-4 h-4" />
+          Generate from Photo
+        </button>
+      </div>
+
       {/* Search bar */}
       <div className="px-4 py-2 border-b border-gray-700">
         <div className="relative">
@@ -227,6 +240,15 @@ export default function AssetLibrary() {
           </div>
         </>
       )}
+
+      {/* AI Generation Modal */}
+      <AIGenerationModal
+        isOpen={showAIModal}
+        onClose={() => setShowAIModal(false)}
+        onSuccess={() => {
+          loadAssets(); // Refresh asset list
+        }}
+      />
     </div>
   );
 }

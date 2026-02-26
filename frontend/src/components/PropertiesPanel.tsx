@@ -4,13 +4,14 @@ import { useState } from 'react';
 import { roomsApi, furnitureApi } from '../lib/api';
 import { toast } from 'sonner';
 import DeleteRoomDialog from './DeleteRoomDialog';
+import { formatLength, formatArea } from '../lib/units';
 
 interface PropertiesPanelProps {
   projectName: string;
 }
 
 function PropertiesPanel({ projectName }: PropertiesPanelProps) {
-  const { selectedRoomId, setSelectedRoomId, rooms, floors, currentFloorId, furniturePlacements, setRooms, setFurniturePlacements } = useEditorStore();
+  const { selectedRoomId, setSelectedRoomId, rooms, floors, currentFloorId, furniturePlacements, setRooms, setFurniturePlacements, unitSystem } = useEditorStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -114,19 +115,19 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-300 text-sm">Width</span>
-                    <span className="text-white font-mono">{selectedRoom.dimensions_json.width.toFixed(1)} m</span>
+                    <span className="text-white font-mono">{formatLength(selectedRoom.dimensions_json.width, unitSystem)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-300 text-sm">Length</span>
-                    <span className="text-white font-mono">{selectedRoom.dimensions_json.depth.toFixed(1)} m</span>
+                    <span className="text-white font-mono">{formatLength(selectedRoom.dimensions_json.depth, unitSystem)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-300 text-sm">Ceiling Height</span>
-                    <span className="text-white font-mono">{selectedRoom.ceiling_height.toFixed(1)} m</span>
+                    <span className="text-white font-mono">{formatLength(selectedRoom.ceiling_height, unitSystem)}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t border-gray-700">
                     <span className="text-gray-300 text-sm">Floor Area</span>
-                    <span className="text-white font-mono">{(selectedRoom.dimensions_json.width * selectedRoom.dimensions_json.depth).toFixed(2)} m²</span>
+                    <span className="text-white font-mono">{formatArea(selectedRoom.dimensions_json.width * selectedRoom.dimensions_json.depth, unitSystem)}</span>
                   </div>
                 </div>
               </div>
@@ -137,11 +138,11 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-300 text-sm">X</span>
-                    <span className="text-white font-mono">{selectedRoom.position_x.toFixed(2)} m</span>
+                    <span className="text-white font-mono">{formatLength(selectedRoom.position_x, unitSystem, 2)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-300 text-sm">Z</span>
-                    <span className="text-white font-mono">{selectedRoom.position_z.toFixed(2)} m</span>
+                    <span className="text-white font-mono">{formatLength(selectedRoom.position_z, unitSystem, 2)}</span>
                   </div>
                 </div>
               </div>

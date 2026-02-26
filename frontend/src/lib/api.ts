@@ -318,3 +318,35 @@ export const healthApi = {
     return response.json();
   },
 };
+
+// AI API methods
+export const aiApi = {
+  /**
+   * Generate a 3D model from a photo using TRELLIS
+   */
+  async generateFromPhoto(formData: FormData) {
+    const response = await fetch(`${API_BASE_URL}/ai/generate-from-photo`, {
+      method: 'POST',
+      body: formData, // Don't set Content-Type, let browser set it with boundary
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(
+        errorData.error?.message || 'Failed to generate model',
+        response.status,
+        errorData.error?.details || 'AI generation failed. Please try again.'
+      );
+    }
+
+    return response.json();
+  },
+
+  /**
+   * Get status of an AI generation
+   */
+  async getGenerationStatus(generationId: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/ai/generation/${generationId}`);
+    return response.json();
+  }
+};
