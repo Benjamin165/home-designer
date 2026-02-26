@@ -67,6 +67,10 @@ app.get('/api/health/schema', async (req, res) => {
     const { getDatabase } = await import(`./db/connection.js?t=${Date.now()}`);
     const db = await getDatabase();
 
+    // CRITICAL: Ensure foreign keys are enabled before checking
+    // In sql.js, this is a per-connection setting and may need to be re-enabled
+    db.exec('PRAGMA foreign_keys = ON');
+
     // Get all tables
     const tablesResult = db.exec("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name");
     const tables = tablesResult.length > 0 ? tablesResult[0].values.map(row => row[0]) : [];
