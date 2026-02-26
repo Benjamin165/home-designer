@@ -711,9 +711,9 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0, 0]}
         userData={{ isGround: true }}
-        onPointerDown={currentTool !== 'draw-wall' ? handlePointerDown : undefined}
-        onPointerMove={currentTool !== 'draw-wall' ? handlePointerMove : undefined}
-        onPointerUp={currentTool !== 'draw-wall' ? handlePointerUp : undefined}
+        onPointerDown={currentTool === 'draw-wall' ? handlePointerDown : undefined}
+        onPointerMove={currentTool === 'draw-wall' ? handlePointerMove : undefined}
+        onPointerUp={currentTool === 'draw-wall' ? handlePointerUp : undefined}
       >
         <planeGeometry args={[100, 100]} />
         <meshBasicMaterial transparent opacity={0.001} depthWrite={false} />
