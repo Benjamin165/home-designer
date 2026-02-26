@@ -1,5 +1,5 @@
 import { useEditorStore } from '../store/editorStore';
-import { X, ChevronRight, ChevronLeft, Trash2 } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Trash2, RotateCw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { roomsApi, furnitureApi, wallsApi } from '../lib/api';
 import { toast } from 'sonner';
@@ -11,7 +11,7 @@ interface PropertiesPanelProps {
 }
 
 function PropertiesPanel({ projectName }: PropertiesPanelProps) {
-  const { selectedRoomId, setSelectedRoomId, selectedWallId, setSelectedWallId, rooms, floors, currentFloorId, furniturePlacements, setRooms, setFurniturePlacements, unitSystem } = useEditorStore();
+  const { selectedRoomId, setSelectedRoomId, selectedWallId, setSelectedWallId, selectedFurnitureId, setSelectedFurnitureId, rooms, floors, currentFloorId, furniturePlacements, setRooms, setFurniturePlacements, updateFurniturePlacement, unitSystem } = useEditorStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ceilingHeight, setCeilingHeight] = useState<string>('');
@@ -21,9 +21,11 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
   const [wallMaterial, setWallMaterial] = useState<string>('paint');
   const [roomName, setRoomName] = useState<string>('');
   const [isNarrowScreen, setIsNarrowScreen] = useState(false);
+  const [furnitureRotation, setFurnitureRotation] = useState<string>('0');
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
   const currentFloor = floors.find((f) => f.id === currentFloorId);
+  const selectedFurniture = furniturePlacements.find((f) => f.id === selectedFurnitureId);
 
   // Get furniture in the selected room
   const roomFurniture = furniturePlacements.filter((f) => f.room_id === selectedRoomId);
@@ -74,6 +76,79 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
     };
     fetchWall();
   }, [selectedWallId, selectedRoomId]);
+
+  // Initialize furniture rotation when furniture selection changes
+  useEffect(() => {
+    if (selectedFurniture) {
+      // Convert radians to degrees for display
+      const degrees = ((selectedFurniture.rotation_y || 0) * 180 / Math.PI);
+      setFurnitureRotation(degrees.toFixed(1));
+    }
+  }, [selectedFurniture?.id]);
+
+  // Handle furniture rotation change
+  const handleFurnitureRotationChange = (degrees: string) => {
+    setFurnitureRotation(degrees);
+  };
+
+  // Handle furniture rotation save
+  const handleFurnitureRotationSave = async () => {
+    if (!selectedFurniture) return;
+
+    const degrees = parseFloat(furnitureRotation);
+    if (isNaN(degrees)) {
+      toast.error('Please enter a valid rotation angle');
+      return;
+    }
+
+    // Convert degrees to radians
+    const radians = degrees * Math.PI / 180;
+
+    try {
+      await furnitureApi.update(selectedFurniture.id, {
+        rotation_y: radians,
+      });
+
+      // Update local state
+      updateFurniturePlacement(selectedFurniture.id, {
+        rotation_y: radians,
+      });
+
+      toast.success('Furniture rotated', {
+        description: `Rotated to ${degrees}°`
+      });
+    } catch (error) {
+      console.error('Error updating furniture rotation:', error);
+      toast.error('Failed to rotate furniture');
+    }
+  };
+
+  // Quick rotate furniture by specified degrees
+  const handleQuickRotate = async (deltaDegrees: number) => {
+    if (!selectedFurniture) return;
+
+    const currentDegrees = parseFloat(furnitureRotation);
+    const newDegrees = (currentDegrees + deltaDegrees) % 360;
+    const radians = newDegrees * Math.PI / 180;
+
+    try {
+      await furnitureApi.update(selectedFurniture.id, {
+        rotation_y: radians,
+      });
+
+      // Update local state
+      updateFurniturePlacement(selectedFurniture.id, {
+        rotation_y: radians,
+      });
+
+      setFurnitureRotation(newDegrees.toFixed(1));
+
+      toast.success(`Rotated ${deltaDegrees > 0 ? '+' : ''}${deltaDegrees}°`);
+    } catch (error) {
+      console.error('Error rotating furniture:', error);
+      toast.error('Failed to rotate furniture');
+    }
+  };
 
   // Handle wall color change
   const handleWallColorChange = async (color: string) => {
@@ -286,7 +361,118 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
 
         {/* Content */}
         <div className="p-4 space-y-4">
-          {selectedRoom ? (
+          {selectedFurniture ? (
+            // Furniture Properties (when furniture is selected)
+            <>
+              {/* Furniture Name/Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Furniture</label>
+                <div className="text-white font-medium">{selectedFurniture.asset_name || 'Unknown Item'}</div>
+                {selectedFurniture.category && (
+                  <div className="text-gray-400 text-sm mt-1">{selectedFurniture.category}</div>
+                )}
+              </div>
+
+              {/* Dimensions */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Dimensions</label>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">Width</span>
+                    <span className="text-white font-mono">{formatLength(selectedFurniture.width || 1, unitSystem)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">Height</span>
+                    <span className="text-white font-mono">{formatLength(selectedFurniture.height || 1, unitSystem)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">Depth</span>
+                    <span className="text-white font-mono">{formatLength(selectedFurniture.depth || 1, unitSystem)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Position */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Position</label>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">X</span>
+                    <span className="text-white font-mono">{formatLength(selectedFurniture.position_x, unitSystem, 2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">Y</span>
+                    <span className="text-white font-mono">{formatLength(selectedFurniture.position_y, unitSystem, 2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">Z</span>
+                    <span className="text-white font-mono">{formatLength(selectedFurniture.position_z, unitSystem, 2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rotation (Feature #34) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Rotation</label>
+                <div className="flex gap-2 items-center mb-3">
+                  <input
+                    type="number"
+                    step="1"
+                    value={furnitureRotation}
+                    onChange={(e) => handleFurnitureRotationChange(e.target.value)}
+                    onBlur={handleFurnitureRotationSave}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleFurnitureRotationSave();
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 bg-gray-700/50 border border-gray-600 rounded text-white font-mono focus:outline-none focus:border-blue-500 transition-colors"
+                    placeholder="0"
+                  />
+                  <span className="text-gray-400 text-sm">degrees</span>
+                </div>
+
+                {/* Quick Rotation Buttons */}
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => handleQuickRotate(-90)}
+                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors flex items-center justify-center gap-1"
+                    title="Rotate -90°"
+                  >
+                    <RotateCw className="w-4 h-4 transform scale-x-[-1]" />
+                    -90°
+                  </button>
+                  <button
+                    onClick={() => handleQuickRotate(90)}
+                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors flex items-center justify-center gap-1"
+                    title="Rotate +90°"
+                  >
+                    <RotateCw className="w-4 h-4" />
+                    +90°
+                  </button>
+                  <button
+                    onClick={() => handleQuickRotate(180)}
+                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors flex items-center justify-center gap-1"
+                    title="Rotate 180°"
+                  >
+                    <RotateCw className="w-4 h-4" />
+                    180°
+                  </button>
+                </div>
+              </div>
+
+              {/* Deselect Button */}
+              <div className="pt-4 border-t border-gray-700">
+                <button
+                  onClick={() => setSelectedFurnitureId(null)}
+                  className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors"
+                >
+                  Deselect Furniture
+                </button>
+              </div>
+            </>
+          ) : selectedRoom ? (
             // Room Properties (when room is selected)
             <>
               {/* Room Name */}

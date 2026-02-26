@@ -478,9 +478,9 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
 
       {/* Preview rectangle while drawing */}
       {previewDims && (
-        <group position={[previewDims.centerX, 0.01, previewDims.centerZ]}>
+        <group position={[previewDims.centerX, 0.01, previewDims.centerZ]} raycast={false}>
           {/* Floor preview */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} raycast={false}>
             <planeGeometry args={[previewDims.width, previewDims.depth]} />
             <meshBasicMaterial color="#3b82f6" opacity={0.3} transparent />
           </mesh>
@@ -580,27 +580,27 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
 // Wall preview component
 function WallPreview({ width, depth, height }: { width: number; depth: number; height: number }) {
   return (
-    <group>
+    <group raycast={false}>
       {/* Front wall */}
-      <mesh position={[0, height / 2, depth / 2]}>
+      <mesh position={[0, height / 2, depth / 2]} raycast={false}>
         <boxGeometry args={[width, height, 0.1]} />
         <meshStandardMaterial color="#3b82f6" opacity={0.5} transparent />
       </mesh>
 
       {/* Back wall */}
-      <mesh position={[0, height / 2, -depth / 2]}>
+      <mesh position={[0, height / 2, -depth / 2]} raycast={false}>
         <boxGeometry args={[width, height, 0.1]} />
         <meshStandardMaterial color="#3b82f6" opacity={0.5} transparent />
       </mesh>
 
       {/* Left wall */}
-      <mesh position={[-width / 2, height / 2, 0]}>
+      <mesh position={[-width / 2, height / 2, 0]} raycast={false}>
         <boxGeometry args={[0.1, height, depth]} />
         <meshStandardMaterial color="#3b82f6" opacity={0.5} transparent />
       </mesh>
 
       {/* Right wall */}
-      <mesh position={[width / 2, height / 2, 0]}>
+      <mesh position={[width / 2, height / 2, 0]} raycast={false}>
         <boxGeometry args={[0.1, height, depth]} />
         <meshStandardMaterial color="#3b82f6" opacity={0.5} transparent />
       </mesh>
