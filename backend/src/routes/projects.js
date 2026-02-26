@@ -171,16 +171,63 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const projectId = parseInt(id);
     const db = await getDatabase();
 
     // Check if project exists
-    const checkResult = db.exec('SELECT id FROM projects WHERE id = ?', [parseInt(id)]);
+    const checkResult = db.exec('SELECT id FROM projects WHERE id = ?', [projectId]);
     if (checkResult.length === 0 || checkResult[0].values.length === 0) {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    // Delete project (CASCADE will handle related records)
-    db.run('DELETE FROM projects WHERE id = ?', [parseInt(id)]);
+    // Manual CASCADE deletion (sql.js CASCADE doesn't work reliably)
+    // Step 1: Get all floor IDs for this project
+    const floorsResult = db.exec('SELECT id FROM floors WHERE project_id = ?', [projectId]);
+    const floorIds = floorsResult.length > 0 && floorsResult[0].values.length > 0
+      ? floorsResult[0].values.map(row => row[0])
+      : [];
+
+    if (floorIds.length > 0) {
+      // Step 2: Get all room IDs for these floors
+      const roomsResult = db.exec(`SELECT id FROM rooms WHERE floor_id IN (${floorIds.join(',')})`);
+      const roomIds = roomsResult.length > 0 && roomsResult[0].values.length > 0
+        ? roomsResult[0].values.map(row => row[0])
+        : [];
+
+      if (roomIds.length > 0) {
+        // Step 3: Get all wall IDs for these rooms
+        const wallsResult = db.exec(`SELECT id FROM walls WHERE room_id IN (${roomIds.join(',')})`);
+        const wallIds = wallsResult.length > 0 && wallsResult[0].values.length > 0
+          ? wallsResult[0].values.map(row => row[0])
+          : [];
+
+        if (wallIds.length > 0) {
+          // Delete windows and doors for these walls
+          db.run(`DELETE FROM windows WHERE wall_id IN (${wallIds.join(',')})`);
+          db.run(`DELETE FROM doors WHERE wall_id IN (${wallIds.join(',')})`);
+        }
+
+        // Delete furniture, lights, and walls for these rooms
+        db.run(`DELETE FROM furniture_placements WHERE room_id IN (${roomIds.join(',')})`);
+        db.run(`DELETE FROM lights WHERE room_id IN (${roomIds.join(',')})`);
+        db.run(`DELETE FROM walls WHERE room_id IN (${roomIds.join(',')})`);
+
+        // Delete rooms
+        db.run(`DELETE FROM rooms WHERE id IN (${roomIds.join(',')})`);
+      }
+
+      // Delete floors
+      db.run(`DELETE FROM floors WHERE id IN (${floorIds.join(',')})`);
+    }
+
+    // Delete edit history for this project
+    db.run('DELETE FROM edit_history WHERE project_id = ?', [projectId]);
+
+    // Delete AI generations for this project
+    db.run('DELETE FROM ai_generations WHERE project_id = ?', [projectId]);
+
+    // Finally, delete the project itself
+    db.run('DELETE FROM projects WHERE id = ?', [projectId]);
 
     // Save to disk
     saveDatabase();
