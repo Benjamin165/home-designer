@@ -35,17 +35,23 @@ async function test() {
     const initialCount = await page.evaluate(async (rid) => {
       const res = await fetch(`/api/rooms/${rid}/furniture`);
       const data = await res.json();
-      return data.placements?.length || 0;
+      return data.furniture?.length || 0;
     }, roomId);
 
     console.log(`Initial furniture count: ${initialCount}`);
 
-    // Perform drag and drop
+    // Perform drag and drop - drop in center of canvas
     console.log('Performing drag operation...');
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) {
+      console.log('❌ Could not get canvas bounding box');
+      return false;
+    }
+
     await furnitureCard.dragTo(canvas, {
       force: true,
       sourcePosition: { x: 50, y: 50 },
-      targetPosition: { x: 400, y: 300 }
+      targetPosition: { x: canvasBox.width / 2, y: canvasBox.height / 2 }
     });
 
     console.log('✓ Drag completed');
@@ -57,7 +63,7 @@ async function test() {
     const newCount = await page.evaluate(async (rid) => {
       const res = await fetch(`/api/rooms/${rid}/furniture`);
       const data = await res.json();
-      return data.placements?.length || 0;
+      return data.furniture?.length || 0;
     }, roomId);
 
     console.log(`Furniture count after drag: ${newCount}`);

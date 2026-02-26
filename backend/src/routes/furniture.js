@@ -18,9 +18,7 @@ router.post('/rooms/:roomId/furniture', async (req, res) => {
       scale_x,
       scale_y,
       scale_z,
-      locked,
-      light_intensity,
-      light_color
+      locked
     } = req.body;
 
     if (!asset_id || position_x === undefined || position_y === undefined || position_z === undefined) {
@@ -48,8 +46,8 @@ router.post('/rooms/:roomId/furniture', async (req, res) => {
         position_x, position_y, position_z,
         rotation_x, rotation_y, rotation_z,
         scale_x, scale_y, scale_z,
-        locked, light_intensity, light_color, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        locked, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
       [
         parseInt(roomId),
         parseInt(asset_id),
@@ -62,9 +60,7 @@ router.post('/rooms/:roomId/furniture', async (req, res) => {
         scale_x || 1,
         scale_y || 1,
         scale_z || 1,
-        locked ? 1 : 0,
-        light_intensity !== undefined ? light_intensity : 2.0,
-        light_color || '#fff8e1'
+        locked ? 1 : 0
       ]
     );
 
@@ -109,9 +105,7 @@ router.put('/furniture/:id', async (req, res) => {
       scale_x,
       scale_y,
       scale_z,
-      locked,
-      light_intensity,
-      light_color
+      locked
     } = req.body;
 
     const db = await getDatabase();
@@ -132,9 +126,7 @@ router.put('/furniture/:id', async (req, res) => {
            scale_x = COALESCE(?, scale_x),
            scale_y = COALESCE(?, scale_y),
            scale_z = COALESCE(?, scale_z),
-           locked = COALESCE(?, locked),
-           light_intensity = COALESCE(?, light_intensity),
-           light_color = COALESCE(?, light_color)
+           locked = COALESCE(?, locked)
        WHERE id = ?`,
       [
         position_x !== undefined ? position_x : null,
@@ -147,8 +139,6 @@ router.put('/furniture/:id', async (req, res) => {
         scale_y !== undefined ? scale_y : null,
         scale_z !== undefined ? scale_z : null,
         locked !== undefined ? (locked ? 1 : 0) : null,
-        light_intensity !== undefined ? light_intensity : null,
-        light_color !== undefined ? light_color : null,
         parseInt(id)
       ]
     );
