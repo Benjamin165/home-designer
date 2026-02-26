@@ -1,0 +1,50 @@
+====================
+Session 12: Features #63, #65 - Real Data Verification
+Date: 2026-02-26
+====================
+
+Feature #63: COMPLETED ✅
+Feature #65: SKIPPED (3D rendering bug)
+
+## Feature #63: Created project appears in project list immediately - PASSING
+
+Successfully verified complete workflow:
+1. Navigated to Project Hub (8 existing projects)
+2. Clicked Create New Project button
+3. Entered project name Test Real Data Project
+4. Created the project
+5. Project appeared in list immediately without page refresh
+6. Project count increased from 8 to 9
+7. Project persists in database via API
+8. Zero console errors
+
+Status: MARKED AS PASSING
+
+## Feature #65: Placed furniture persists after page refresh - SKIPPED
+
+**Data Persistence WORKS:**
+- Furniture placed in database correctly
+- Data persists across server restarts
+- API returns furniture correctly
+- React state updates properly
+- Components render with correct data
+
+**3D Rendering BROKEN:**
+- Furniture geometry not visible in viewport
+- Tested red color with emissive glow - still invisible
+- All data flow verified working
+- Issue isolated to Three.js rendering
+
+**Investigation:**
+- Added extensive debug logging
+- Confirmed FurnitureMesh renders with dimensions 2x0.8x0.9 at position 1.5,0.41,1.5
+- Verified lighting and materials
+- Root cause unknown - needs deeper Three.js investigation
+
+Status: SKIPPED (priority moved to 127)
+
+## Session Summary
+
+Completed: 1 feature
+Skipped: 1 feature
+Total passing: 37/125 (29.6%)
