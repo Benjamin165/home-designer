@@ -123,12 +123,21 @@ function ProjectHub() {
     setShowDeleteModal(false);
     setProjectToDelete(null);
     setDeleteError(null);
+    isDeletingRef.current = false; // Reset ref in case of any stuck state
   };
 
   const handleConfirmDelete = async () => {
     if (!projectToDelete) return;
 
+    // Prevent double-deletion using ref (faster than state)
+    if (isDeletingRef.current) {
+      console.log('Delete already in progress, ignoring duplicate click');
+      return;
+    }
+
     try {
+      // Mark deletion as in progress immediately
+      isDeletingRef.current = true;
       setDeleteLoading(true);
       setDeleteError(null);
       await projectsApi.delete(projectToDelete.id);
@@ -148,6 +157,7 @@ function ProjectHub() {
       console.error('Error deleting project:', err);
     } finally {
       setDeleteLoading(false);
+      isDeletingRef.current = false;
     }
   };
 
