@@ -106,7 +106,7 @@ export default function AssetLibrary() {
 
   const handleDragStart = (asset: Asset) => (e: React.DragEvent) => {
     isDraggingRef.current = true;
-    setDraggingAsset({ id: asset.id, name: asset.name });
+    setDraggingAsset(asset); // Pass the full asset object
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData('application/json', JSON.stringify(asset));
   };

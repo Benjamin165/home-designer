@@ -124,8 +124,8 @@ interface EditorState {
   setUnitSystem: (system: 'metric' | 'imperial') => void;
 
   // Dragging state for furniture
-  draggingAsset: { id: number; name: string } | null;
-  setDraggingAsset: (asset: { id: number; name: string } | null) => void;
+  draggingAsset: any | null; // Full asset object with all properties
+  setDraggingAsset: (asset: any | null) => void;
 
   // Grid visibility
   gridVisible: boolean;

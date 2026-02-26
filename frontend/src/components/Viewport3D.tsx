@@ -159,18 +159,12 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
     const handleDragEnter = (e: DragEvent) => {
       if (!draggingAsset) return;
 
-      try {
-        const data = e.dataTransfer?.getData('application/json');
-        if (data) {
-          const asset = JSON.parse(data);
-          setFurniturePreview({
-            asset,
-            position: { x: 0, z: 0 },
-          });
-        }
-      } catch (error) {
-        console.error('Error parsing drag data:', error);
-      }
+      // Use the draggingAsset from the store instead of reading from dataTransfer
+      // (dataTransfer.getData only works in drop event, not dragenter)
+      setFurniturePreview({
+        asset: draggingAsset,
+        position: { x: 0, z: 0 },
+      });
     };
 
     const handleDragLeave = () => {
