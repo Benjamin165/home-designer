@@ -6,6 +6,7 @@ import { useEditorStore } from '../store/editorStore';
 import { furnitureApi } from '../lib/api';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
+import { Sun, Moon } from 'lucide-react';
 
 interface DragState {
   isDrawing: boolean;
@@ -22,6 +23,7 @@ function Scene() {
   const setCameraPosition = useEditorStore((state) => state.setCameraPosition);
   const cameraPositions = useEditorStore((state) => state.cameraPositions);
   const gridVisible = useEditorStore((state) => state.gridVisible);
+  const lightingMode = useEditorStore((state) => state.lightingMode);
 
   console.log('[DEBUG Scene] Furniture placements:', furniturePlacements);
 
@@ -34,6 +36,10 @@ function Scene() {
     asset: any;
     position: { x: number; z: number };
   } | null>(null);
+
+  // Animated lighting intensities
+  const [ambientIntensity, setAmbientIntensity] = useState(0.5);
+  const [directionalIntensity, setDirectionalIntensity] = useState(0.8);
 
   const planeRef = useRef<THREE.Mesh>(null);
   const controlsRef = useRef<OrbitControlsImpl>(null);
@@ -79,6 +85,36 @@ function Scene() {
       setFurniturePreview(null);
     }
   }, [draggingAsset]);
+
+  // Animate lighting transitions when mode changes
+  useEffect(() => {
+    const targetAmbient = lightingMode === 'day' ? 0.5 : 0.15;
+    const targetDirectional = lightingMode === 'day' ? 0.8 : 0.3;
+
+    const startAmbient = ambientIntensity;
+    const startDirectional = directionalIntensity;
+    const duration = 800; // 800ms transition
+    const startTime = performance.now();
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Ease in-out cubic for smooth animation
+      const eased = progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+      setAmbientIntensity(startAmbient + (targetAmbient - startAmbient) * eased);
+      setDirectionalIntensity(startDirectional + (targetDirectional - startDirectional) * eased);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [lightingMode]);
 
   // Restore camera position when floor changes
   useEffect(() => {
@@ -229,8 +265,8 @@ function Scene() {
   return (
     <>
       {/* Ambient lighting */}
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[10, 10, 5]} intensity={0.8} />
+      <ambientLight intensity={ambientIntensity} />
+      <directionalLight position={[10, 10, 5]} intensity={directionalIntensity} />
 
       {/* Grid */}
       {gridVisible && (
@@ -475,6 +511,8 @@ export default function Viewport3D() {
   const currentFloorId = useEditorStore((state) => state.currentFloorId);
   const rooms = useEditorStore((state) => state.rooms);
   const addFurniturePlacement = useEditorStore((state) => state.addFurniturePlacement);
+  const lightingMode = useEditorStore((state) => state.lightingMode);
+  const setLightingMode = useEditorStore((state) => state.setLightingMode);
 
   // Listen for furniture drop events from the 3D scene
   useEffect(() => {
@@ -566,6 +604,19 @@ export default function Viewport3D() {
 
       {/* Dimension overlay (HTML-based text that floats over 3D) */}
       <DimensionOverlay />
+
+      {/* Day/Night toggle button */}
+      <button
+        onClick={() => setLightingMode(lightingMode === 'day' ? 'night' : 'day')}
+        className="absolute top-4 right-4 p-3 bg-gray-800/80 backdrop-blur-sm rounded-lg text-white hover:bg-gray-700/80 transition-all shadow-lg"
+        title={lightingMode === 'day' ? 'Switch to Night Mode' : 'Switch to Day Mode'}
+      >
+        {lightingMode === 'day' ? (
+          <Moon className="w-5 h-5" />
+        ) : (
+          <Sun className="w-5 h-5" />
+        )}
+      </button>
     </div>
   );
 }

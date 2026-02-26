@@ -102,6 +102,10 @@ interface EditorState {
   // Grid visibility
   gridVisible: boolean;
   setGridVisible: (visible: boolean) => void;
+
+  // Lighting mode
+  lightingMode: 'day' | 'night';
+  setLightingMode: (mode: 'day' | 'night') => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -151,4 +155,7 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   gridVisible: true,
   setGridVisible: (visible) => set({ gridVisible: visible }),
+
+  lightingMode: 'day',
+  setLightingMode: (mode) => set({ lightingMode: mode }),
 }));
