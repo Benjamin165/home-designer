@@ -1175,12 +1175,15 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
 
   const selectedFurnitureId = useEditorStore((state) => state.selectedFurnitureId);
   const setSelectedFurnitureId = useEditorStore((state) => state.setSelectedFurnitureId);
+  const selectedFurnitureIds = useEditorStore((state) => state.selectedFurnitureIds); // Feature #38
+  const toggleFurnitureSelection = useEditorStore((state) => state.toggleFurnitureSelection); // Feature #38
+  const clearFurnitureSelection = useEditorStore((state) => state.clearFurnitureSelection); // Feature #38
   const updateFurniturePlacement = useEditorStore((state) => state.updateFurniturePlacement);
   const currentTool = useEditorStore((state) => state.currentTool);
   const addAction = useEditorStore((state) => state.addAction);
   const rooms = useEditorStore((state) => state.rooms);
 
-  const isSelected = selectedFurnitureId === furniture.id;
+  const isSelected = selectedFurnitureId === furniture.id || selectedFurnitureIds.includes(furniture.id);
   const groupRef = useRef<THREE.Group>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; z: number } | null>(null);
@@ -1209,11 +1212,22 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
     // Left click - select furniture
     if (e.button === 0 && currentTool === 'select') {
       e.stopPropagation();
-      setSelectedFurnitureId(furniture.id);
 
-      // Start drag
-      setIsDragging(true);
-      setDragStart({ x: furniture.position_x, z: furniture.position_z });
+      // Feature #38: Multi-select with Shift+Click
+      if (e.nativeEvent.shiftKey) {
+        // Shift+Click: toggle this item in the multi-selection
+        toggleFurnitureSelection(furniture.id);
+      } else {
+        // Regular click: clear multi-selection and select this item
+        clearFurnitureSelection();
+        setSelectedFurnitureId(furniture.id);
+      }
+
+      // Start drag only for single selection (not during multi-select)
+      if (!e.nativeEvent.shiftKey) {
+        setIsDragging(true);
+        setDragStart({ x: furniture.position_x, z: furniture.position_z });
+      }
     }
   };
 

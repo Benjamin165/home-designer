@@ -11,7 +11,7 @@ interface PropertiesPanelProps {
 }
 
 function PropertiesPanel({ projectName }: PropertiesPanelProps) {
-  const { selectedRoomId, setSelectedRoomId, selectedWallId, setSelectedWallId, selectedFurnitureId, setSelectedFurnitureId, rooms, floors, currentFloorId, furniturePlacements, setRooms, setFurniturePlacements, updateFurniturePlacement, unitSystem } = useEditorStore();
+  const { selectedRoomId, setSelectedRoomId, selectedWallId, setSelectedWallId, selectedFurnitureId, setSelectedFurnitureId, selectedFurnitureIds, rooms, floors, currentFloorId, furniturePlacements, setRooms, setFurniturePlacements, updateFurniturePlacement, unitSystem } = useEditorStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ceilingHeight, setCeilingHeight] = useState<string>('');
@@ -442,8 +442,26 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
 
         {/* Content */}
         <div className="p-4 space-y-4">
-          {selectedFurniture ? (
-            // Furniture Properties (when furniture is selected)
+          {selectedFurnitureIds.length > 1 ? (
+            // Feature #38: Multi-select message
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Multiple Items Selected</label>
+              <div className="text-white font-medium mb-2">{selectedFurnitureIds.length} items selected</div>
+              <p className="text-gray-400 text-sm mb-4">
+                Multiple furniture items are selected. Click on a single item to view and edit its properties.
+              </p>
+              <button
+                onClick={() => {
+                  const { clearFurnitureSelection } = useEditorStore.getState();
+                  clearFurnitureSelection();
+                }}
+                className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors"
+              >
+                Clear Selection
+              </button>
+            </div>
+          ) : selectedFurniture ? (
+            // Furniture Properties (when single furniture is selected)
             <>
               {/* Furniture Name/Type */}
               <div>

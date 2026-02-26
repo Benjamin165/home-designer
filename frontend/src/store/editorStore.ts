@@ -116,6 +116,9 @@ interface EditorState {
   setSelectedRoomId: (id: number | null) => void;
   selectedFurnitureId: number | null;
   setSelectedFurnitureId: (id: number | null) => void;
+  selectedFurnitureIds: number[]; // Feature #38: Multi-select
+  toggleFurnitureSelection: (id: number) => void; // Feature #38: Add/remove from selection
+  clearFurnitureSelection: () => void; // Feature #38: Clear all selections
   selectedWallId: number | null;
   setSelectedWallId: (id: number | null) => void;
 
@@ -193,6 +196,28 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   selectedFurnitureId: null,
   setSelectedFurnitureId: (id) => set({ selectedFurnitureId: id }),
+
+  // Feature #38: Multi-select furniture
+  selectedFurnitureIds: [],
+  toggleFurnitureSelection: (id) => set((state) => {
+    const isSelected = state.selectedFurnitureIds.includes(id);
+    if (isSelected) {
+      // Remove from selection
+      return {
+        selectedFurnitureIds: state.selectedFurnitureIds.filter(fid => fid !== id),
+        selectedFurnitureId: state.selectedFurnitureIds.length > 1
+          ? state.selectedFurnitureIds.find(fid => fid !== id) || null
+          : null
+      };
+    } else {
+      // Add to selection
+      return {
+        selectedFurnitureIds: [...state.selectedFurnitureIds, id],
+        selectedFurnitureId: id // Set as primary selection
+      };
+    }
+  }),
+  clearFurnitureSelection: () => set({ selectedFurnitureIds: [], selectedFurnitureId: null }),
 
   selectedWallId: null,
   setSelectedWallId: (id) => set({ selectedWallId: id }),
