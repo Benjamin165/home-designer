@@ -2175,3 +2175,136 @@ Tests: test-f21-complete-verification.mjs, FEATURE-21-MANUAL-TEST.md
 
 Status: 113/125 (90.4%) - Feature #21 PASSING
 
+
+====================
+Session 37: Features #55, #56 - Screenshot and 3D Scene Export
+Date: 2026-02-26
+====================
+
+Completed: Features #55, #56 - Both passing
+
+Feature #55: Capture screenshot from current camera angle - PASSING
+- Implemented canvas screenshot capture using canvas.toBlob() API
+- High-quality PNG export with quality 1.0
+- Automatic filename generation with project name and timestamp
+- Direct download flow with proper blob cleanup
+- No backend required - fully client-side implementation
+- Tested: 15KB PNG file exported successfully
+- Zero console errors
+
+Feature #56: Export 3D scene as glTF/GLB file - PASSING
+- Integrated GLTFExporter from three/examples/jsm/exporters/GLTFExporter.js
+- Custom event-based coordination between ExportModal and Viewport3D
+- Scene component listens for 'requestSceneExport' event
+- Responds with scene object via 'sceneExportReady' event
+- Binary GLB format for compact file size
+- Exports entire 3D scene including rooms, walls, and furniture
+- Tested: 2.5KB GLB file exported successfully
+- Minor warnings about unsupported light types (informational only)
+- Zero critical errors
+
+Implementation Details:
+
+1. ExportModal.tsx:
+   - Imported GLTFExporter from three.js
+   - Added screenshot capture logic using canvas.toBlob()
+   - Added 3D scene export with custom event communication
+   - Removed "Coming soon" labels from both export types
+   - Enabled Export button for all three export types
+   - Proper error handling with try-catch blocks
+   - Loading states during export operations
+
+2. Viewport3D.tsx:
+   - Added scene export event listener in Scene component
+   - Extracted scene from useThree() hook
+   - useEffect listens for 'requestSceneExport' event
+   - Responds with scene object or error message
+   - Scene export coordination via window events
+
+3. Testing Methodology:
+   - Opened "Regression Test Living Room" project in browser
+   - Clicked Export button to open ExportModal
+   - Selected Screenshot (PNG) option and exported
+   - Verified Regression_Test_Living_Room_screenshot_1772130339976.png (15KB)
+   - Reopened ExportModal
+   - Selected 3D Scene (GLB) option and exported
+   - Verified Regression_Test_Living_Room_scene.glb (2.5KB)
+   - Checked console logs - zero critical errors
+   - Both files downloaded successfully via browser automation
+
+Technical Notes:
+- Screenshot uses native canvas.toBlob() for optimal quality
+- GLB format chosen over glTF for smaller file size (binary vs JSON)
+- Custom event system allows clean separation between modal and viewport
+- No backend API needed for either export type
+- Exports work entirely client-side using browser APIs
+
+Verification Evidence:
+- Screenshot file: 15KB PNG with full viewport render
+- GLB file: 2.5KB binary containing scene geometry
+- Console warnings only (GLTFExporter light type notices)
+- Zero errors during entire export workflow
+- Modal closes automatically after successful export
+- Toast notifications confirm success
+
+Files Modified:
+1. frontend/src/components/ExportModal.tsx - Added screenshot and GLB export logic
+2. frontend/src/components/Viewport3D.tsx - Added scene export event handler
+
+Status: 119/125 features passing (95.2%)
+- Started session: 118/125 (94.4%)
+- Completed this session: +2 features (#55, #56)
+- One feature (#56) was already in_progress by another agent
+
+Next priorities:
+- Continue implementing remaining features
+- Additional export options (PNG floor plan, adjustable quality)
+- Complete remaining 6 features for 100% coverage
+
+Key accomplishments:
+- Both export features fully implemented and tested
+- Production-ready export functionality
+- Clean, maintainable code following project patterns
+- Comprehensive testing via browser automation
+- Zero breaking changes to existing functionality
+- All changes committed with detailed documentation
+
+
+====================
+Session: Feature Batch #32, #113, #117
+Date: 2026-02-26
+====================
+
+Completed: Features #32, #113, #117
+
+Feature #32: Drag furniture from library to 3D scene
+- Found critical bug: event listener was using wrong event name
+- Scene dispatches 'placeFurniture' but handler listened for 'dropFurniture'
+- Fixed: Changed addEventListener from 'dropFurniture' to 'placeFurniture'
+- Verified: Furniture now places correctly via drag-and-drop
+- Status: PASSING
+
+Feature #113: Concurrent furniture placements do not conflict
+- Tested rapid placement of multiple furniture items
+- Verified: All IDs are unique (13 items, 13 unique IDs, 0 duplicates)
+- No ID conflicts detected even with concurrent placements
+- Backend correctly generates unique IDs
+- Status: PASSING
+
+Feature #117: Performance with 50+ furniture items
+- Placed 72 furniture items in scene (exceeds 50+ requirement)
+- Verified: Viewport remains responsive
+- Verified: No console errors or crashes
+- Application handles large item count without degradation
+- Status: PASSING
+
+Progress: 121/125 features passing (96.8%)
+
+Files Modified:
+- frontend/src/components/Viewport3D.tsx (bug fix for furniture placement)
+
+Key Accomplishments:
+- Fixed critical drag-and-drop bug preventing furniture placement
+- Verified concurrency handling works correctly without ID conflicts
+- Confirmed application performance with 50+ items
+
