@@ -152,7 +152,13 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
 
   const planeRef = useRef<THREE.Mesh>(null);
   const controlsRef = useRef<OrbitControlsImpl>(null);
+  const dragStateRef = useRef<DragState>(dragState); // Keep ref for event handlers
   const { camera, gl } = useThree();
+
+  // Update ref when dragState changes
+  useEffect(() => {
+    dragStateRef.current = dragState;
+  }, [dragState]);
 
   // Handle dragging asset from library
   useEffect(() => {
@@ -260,6 +266,53 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
 
     return () => clearInterval(saveInterval);
   }, [currentFloorId, camera, setCameraPosition]);
+
+  // Global pointer up handler for draw-wall tool
+  // This ensures the event is captured even when pointer moves during dragging
+  useEffect(() => {
+    if (currentTool !== 'draw-wall') return;
+
+    const handleGlobalPointerUp = (event: PointerEvent) => {
+      console.log('[DEBUG Global PointerUp] Captured global pointerup event, dragState.isDrawing:', dragStateRef.current.isDrawing);
+
+      // Only handle if we're actually drawing
+      if (!dragStateRef.current.isDrawing) {
+        console.log('[DEBUG Global PointerUp] Not drawing, ignoring');
+        return;
+      }
+
+      // Get the point on the ground plane where the pointer is
+      if (planeRef.current) {
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2(
+          (event.clientX / window.innerWidth) * 2 - 1,
+          -(event.clientY / window.innerHeight) * 2 + 1
+        );
+        raycaster.setFromCamera(pointer, camera);
+
+        const intersects = raycaster.intersectObject(planeRef.current);
+        if (intersects.length > 0) {
+          const point = intersects[0].point;
+          console.log('[DEBUG Global PointerUp] Intersection point:', point);
+
+          // Call handlePointerUp with a synthetic event
+          handlePointerUp({
+            point: { x: point.x, z: point.z },
+            nativeEvent: event,
+          });
+        } else {
+          console.log('[DEBUG Global PointerUp] No intersection with ground plane');
+        }
+      }
+    };
+
+    gl.domElement.addEventListener('pointerup', handleGlobalPointerUp);
+    console.log('[DEBUG] Global pointerup listener attached for draw-wall tool');
+    return () => {
+      gl.domElement.removeEventListener('pointerup', handleGlobalPointerUp);
+      console.log('[DEBUG] Global pointerup listener removed');
+    };
+  }, [currentTool, camera, gl]);
 
   // Handle mouse events for wall drawing and context menu
   const handlePointerDown = (event: any) => {
