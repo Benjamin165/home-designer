@@ -481,11 +481,6 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
         <group
           position={[previewDims.centerX, 0.01, previewDims.centerZ]}
           raycast={false}
-          onPointerUp={(e) => {
-            console.log('[DEBUG Preview Group] onPointerUp captured by preview!', e);
-            e.stopPropagation();
-            handlePointerUp(e);
-          }}
         >
           {/* Floor preview */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} raycast={false}>

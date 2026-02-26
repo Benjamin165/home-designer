@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { assetsApi } from '../lib/api';
 import { useEditorStore } from '../store/editorStore';
-import { Package, Sofa, Lightbulb, Flower2, Frame, ChevronLeft, ChevronRight, Search, X, Sparkles, Star } from 'lucide-react';
+import { Package, Sofa, Lightbulb, Flower2, Frame, ChevronLeft, ChevronRight, Search, X, Sparkles, Star, Link as LinkIcon } from 'lucide-react';
 import AIGenerationModal from './AIGenerationModal';
+import URLImportModal from './URLImportModal';
 import AssetDetailsModal from './AssetDetailsModal';
 import { toast } from 'sonner';
 
@@ -35,6 +36,7 @@ export default function AssetLibrary() {
   const [error, setError] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
+  const [showURLImportModal, setShowURLImportModal] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -201,14 +203,21 @@ export default function AssetLibrary() {
         })}
       </div>
 
-      {/* Generate from Photo button */}
-      <div className="px-4 py-2 border-b border-gray-700">
+      {/* AI Generation buttons */}
+      <div className="px-4 py-2 border-b border-gray-700 space-y-2">
         <button
           onClick={() => setShowAIModal(true)}
           className="w-full px-3 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all flex items-center justify-center gap-2"
         >
           <Sparkles className="w-4 h-4" />
           Generate from Photo
+        </button>
+        <button
+          onClick={() => setShowURLImportModal(true)}
+          className="w-full px-3 py-2 bg-gray-700 text-white rounded text-sm font-medium hover:bg-gray-600 transition-all flex items-center justify-center gap-2"
+        >
+          <LinkIcon className="w-4 h-4" />
+          Import from URL
         </button>
       </div>
 
@@ -325,6 +334,15 @@ export default function AssetLibrary() {
       <AIGenerationModal
         isOpen={showAIModal}
         onClose={() => setShowAIModal(false)}
+        onSuccess={() => {
+          loadAssets(); // Refresh asset list
+        }}
+      />
+
+      {/* URL Import Modal */}
+      <URLImportModal
+        isOpen={showURLImportModal}
+        onClose={() => setShowURLImportModal(false)}
         onSuccess={() => {
           loadAssets(); // Refresh asset list
         }}
