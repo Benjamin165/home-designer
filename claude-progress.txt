@@ -1401,3 +1401,15 @@ implemented by another agent. This session added the missing link between settin
 
 Verification: Toggled between metric/imperial, verified form labels and dimensions update.
 Zero console errors throughout testing.
+
+====================
+Session 21: Feature #82 - Unsaved Changes Warning
+Date: 2026-02-26
+====================
+
+Completed: Feature #82 - Unsaved changes warning on project close - PASSING
+
+Implementation complete with all three dialog options tested and working.
+Zero console errors. Feature verified end-to-end with browser automation.
+
+Status: 76/125 features passing (60.8%)
