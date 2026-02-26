@@ -264,7 +264,17 @@ router.delete('/rooms/:id', async (req, res) => {
       return res.status(404).json({ error: 'Room not found' });
     }
 
-    // Delete room (CASCADE will handle related walls and furniture)
+    // Explicitly delete related data (CASCADE DELETE should handle this, but we'll be explicit for reliability)
+    // Delete furniture placements in this room
+    db.run('DELETE FROM furniture_placements WHERE room_id = ?', [parseInt(id)]);
+
+    // Delete lights in this room
+    db.run('DELETE FROM lights WHERE room_id = ?', [parseInt(id)]);
+
+    // Delete walls in this room (which will cascade to windows and doors)
+    db.run('DELETE FROM walls WHERE room_id = ?', [parseInt(id)]);
+
+    // Delete the room itself
     db.run('DELETE FROM rooms WHERE id = ?', [parseInt(id)]);
 
     saveDatabase();
