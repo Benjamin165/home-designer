@@ -202,6 +202,67 @@ export const roomsApi = {
   },
 };
 
+// Assets API methods
+export const assetsApi = {
+  async getAll(params?: { category?: string; search?: string; limit?: number }) {
+    const queryParams = new URLSearchParams();
+    if (params?.category) queryParams.append('category', params.category);
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const url = `${API_BASE_URL}/assets${queryParams.toString() ? `?${queryParams}` : ''}`;
+    const response = await fetchWithErrorHandling(url);
+    return response.json();
+  },
+
+  async getById(id: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/assets/${id}`);
+    return response.json();
+  },
+};
+
+// Furniture placements API methods
+export const furnitureApi = {
+  async getByRoom(roomId: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/rooms/${roomId}/furniture`);
+    return response.json();
+  },
+
+  async create(roomId: number, data: {
+    asset_id: number;
+    position_x: number;
+    position_y: number;
+    position_z: number;
+    rotation_x?: number;
+    rotation_y?: number;
+    rotation_z?: number;
+    scale_x?: number;
+    scale_y?: number;
+    scale_z?: number;
+  }) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/rooms/${roomId}/furniture`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async update(id: number, data: any) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/furniture/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async delete(id: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/furniture/${id}`, {
+      method: 'DELETE',
+    });
+    return response.json();
+  },
+};
+
 // Health check
 export const healthApi = {
   async check() {

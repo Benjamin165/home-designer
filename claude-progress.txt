@@ -185,3 +185,6 @@ Feature #110: Error messages are announced to screen readers - PASSING
 
 Progress: 14/125 features passing (11.2%)
 
+
+Feature #21 COMPLETED - Wall drawing with 3D viewport implemented and verified
+Feature #32 IN PROGRESS - Backend furniture routes created, frontend implementation pending
