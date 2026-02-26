@@ -1,6 +1,7 @@
-import Database from 'better-sqlite3';
+import initSqlJs from 'sql.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -8,24 +9,56 @@ const __dirname = dirname(__filename);
 const DB_PATH = join(__dirname, '../../database.db');
 
 let db = null;
+let SQL = null;
 
-export function getDatabase() {
+export async function getDatabase() {
   if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
+    // Initialize sql.js
+    if (!SQL) {
+      SQL = await initSqlJs();
+    }
+
+    // Load existing database or create new one
+    if (existsSync(DB_PATH)) {
+      const buffer = readFileSync(DB_PATH);
+      db = new SQL.Database(buffer);
+      console.log('✓ Database loaded from disk');
+    } else {
+      db = new SQL.Database();
+      console.log('✓ New database created');
+    }
+
+    // Enable foreign keys
+    db.run('PRAGMA foreign_keys = ON');
     console.log('✓ Database connection established');
   }
   return db;
 }
 
+export function saveDatabase() {
+  if (db) {
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    writeFileSync(DB_PATH, buffer);
+    console.log('✓ Database saved to disk');
+  }
+}
+
 export function closeDatabase() {
   if (db) {
+    saveDatabase();
     db.close();
     db = null;
     console.log('✓ Database connection closed');
   }
 }
+
+// Auto-save every 30 seconds
+setInterval(() => {
+  if (db) {
+    saveDatabase();
+  }
+}, 30000);
 
 // Auto-close on process exit
 process.on('exit', closeDatabase);

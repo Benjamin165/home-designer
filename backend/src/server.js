@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import projectsRouter from './routes/projects.js';
 
 dotenv.config();
 
@@ -25,9 +26,10 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Home Designer API is running' });
 });
 
-// API routes will be added here during implementation
-// Example:
-// app.use('/api/projects', projectsRouter);
+// API routes
+app.use('/api/projects', projectsRouter);
+
+// Placeholder routes for other endpoints (will be implemented later)
 // app.use('/api/floors', floorsRouter);
 // app.use('/api/rooms', roomsRouter);
 // app.use('/api/assets', assetsRouter);
@@ -35,11 +37,6 @@ app.get('/api/health', (req, res) => {
 // app.use('/api/ai', aiRouter);
 // app.use('/api/export', exportRouter);
 // app.use('/api/settings', settingsRouter);
-
-// Placeholder routes for initial testing
-app.get('/api/projects', (req, res) => {
-  res.json({ message: 'Projects endpoint - implementation in progress', projects: [] });
-});
 
 app.get('/api/assets', (req, res) => {
   res.json({ message: 'Assets endpoint - implementation in progress', assets: [] });

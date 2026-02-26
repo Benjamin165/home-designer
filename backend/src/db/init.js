@@ -1,7 +1,7 @@
-import Database from 'better-sqlite3';
+import initSqlJs from 'sql.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { existsSync } from 'fs';
+import { writeFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,11 +14,11 @@ console.log('========================================');
 console.log(`  Database path: ${DB_PATH}`);
 console.log('');
 
-// Create database connection
-const db = new Database(DB_PATH);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+// Initialize sql.js
+const SQL = await initSqlJs();
+const db = new SQL.Database();
 
+db.run('PRAGMA foreign_keys = ON');
 console.log('✓ Database connection established');
 
 // Create tables
@@ -234,24 +234,14 @@ db.exec(schema);
 console.log('✓ Database schema created');
 
 // Insert default settings
-const insertDefaultSettings = db.prepare(`
-  INSERT OR IGNORE INTO user_settings (key, value, encrypted)
-  VALUES (?, ?, ?)
-`);
-
-insertDefaultSettings.run('unit_system', 'metric', 0);
-insertDefaultSettings.run('render_quality', 'high', 0);
-insertDefaultSettings.run('auto_save_interval', '60000', 0);
-insertDefaultSettings.run('performance_mode', '0', 0);
+db.run(`INSERT OR IGNORE INTO user_settings (key, value, encrypted) VALUES ('unit_system', 'metric', 0)`);
+db.run(`INSERT OR IGNORE INTO user_settings (key, value, encrypted) VALUES ('render_quality', 'high', 0)`);
+db.run(`INSERT OR IGNORE INTO user_settings (key, value, encrypted) VALUES ('auto_save_interval', '60000', 0)`);
+db.run(`INSERT OR IGNORE INTO user_settings (key, value, encrypted) VALUES ('performance_mode', '0', 0)`);
 
 console.log('✓ Default settings inserted');
 
 // Insert default material presets
-const insertMaterialPreset = db.prepare(`
-  INSERT OR IGNORE INTO material_presets (id, name, type, color, is_builtin)
-  VALUES (?, ?, ?, ?, ?)
-`);
-
 const materialPresets = [
   [1, 'White Paint', 'wall', '#FFFFFF', 1],
   [2, 'Light Gray', 'wall', '#E5E7EB', 1],
@@ -265,10 +255,17 @@ const materialPresets = [
 ];
 
 materialPresets.forEach(preset => {
-  insertMaterialPreset.run(...preset);
+  db.run(`INSERT OR IGNORE INTO material_presets (id, name, type, color, is_builtin) VALUES (?, ?, ?, ?, ?)`, preset);
 });
 
 console.log('✓ Default material presets inserted');
+
+// Save database to disk
+const data = db.export();
+const buffer = Buffer.from(data);
+writeFileSync(DB_PATH, buffer);
+
+console.log('✓ Database saved to disk');
 
 // Close database
 db.close();
