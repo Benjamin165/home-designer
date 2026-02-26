@@ -12,6 +12,12 @@ import {
   ArrowLeft,
   Save,
   Edit2,
+  Armchair,
+  Hand,
+  Eye,
+  Undo2,
+  Redo2,
+  Settings,
 } from 'lucide-react';
 
 interface Project {
@@ -332,7 +338,7 @@ function Editor() {
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-300 hover:bg-gray-600'
                 }`}
-                title="Select"
+                title="Select / Pointer"
               >
                 <MousePointer2 className="w-5 h-5" />
               </button>
@@ -348,6 +354,17 @@ function Editor() {
                 <Square className="w-5 h-5" />
               </button>
               <button
+                onClick={() => handleToolSelect('place-furniture')}
+                className={`p-2 rounded transition-colors ${
+                  currentTool === 'place-furniture'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-600'
+                }`}
+                title="Place Furniture"
+              >
+                <Armchair className="w-5 h-5" />
+              </button>
+              <button
                 onClick={() => handleToolSelect('measure')}
                 className={`p-2 rounded transition-colors ${
                   currentTool === 'measure'
@@ -358,11 +375,58 @@ function Editor() {
               >
                 <Ruler className="w-5 h-5" />
               </button>
+              <button
+                onClick={() => handleToolSelect('pan')}
+                className={`p-2 rounded transition-colors ${
+                  currentTool === 'pan'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-600'
+                }`}
+                title="Pan"
+              >
+                <Hand className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => handleToolSelect('first-person')}
+                className={`p-2 rounded transition-colors ${
+                  currentTool === 'first-person'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-600'
+                }`}
+                title="First-Person View"
+              >
+                <Eye className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex items-center bg-gray-700 rounded-lg p-1 gap-1">
+              <button
+                onClick={() => {/* TODO: Implement undo */}}
+                className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors"
+                title="Undo"
+              >
+                <Undo2 className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => {/* TODO: Implement redo */}}
+                className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors"
+                title="Redo"
+              >
+                <Redo2 className="w-5 h-5" />
+              </button>
             </div>
 
             <button className="px-3 py-2 flex items-center gap-2 text-sm bg-gray-700 text-gray-200 rounded hover:bg-gray-600 transition-colors">
               <Save className="w-4 h-4" />
               Save
+            </button>
+
+            <button
+              onClick={() => {/* TODO: Open settings */}}
+              className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors"
+              title="Settings"
+            >
+              <Settings className="w-5 h-5" />
             </button>
           </div>
         </div>
