@@ -82,6 +82,9 @@ function Editor() {
   const lastSaveDataRef = useRef<string>('');
   const furniturePlacements = useEditorStore((state) => state.furniturePlacements);
 
+  // Unsaved changes warning
+  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+
   // Zustand store
   const {
     setProjectId,
@@ -336,8 +339,48 @@ function Editor() {
     }
   };
 
+  const hasUnsavedChanges = () => {
+    // Check if there's a pending save or actively saving
+    return saveState === 'saving' || saveTimeoutRef.current !== null;
+  };
+
   const handleBackToProjects = () => {
+    // Check for unsaved changes
+    if (hasUnsavedChanges()) {
+      setShowUnsavedWarning(true);
+    } else {
+      navigate('/');
+    }
+  };
+
+  const handleLeaveWithoutSaving = () => {
+    setShowUnsavedWarning(false);
     navigate('/');
+  };
+
+  const handleSaveAndLeave = async () => {
+    // If there's a pending save, trigger it immediately
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+
+      // Create a snapshot of current data and save it
+      const currentData = JSON.stringify({
+        rooms: rooms.length,
+        furniture: furniturePlacements.length,
+        floors: floors.length,
+      });
+      lastSaveDataRef.current = currentData;
+      setSaveState('saved');
+    }
+
+    // Navigate after a brief moment to ensure state is updated
+    setTimeout(() => {
+      navigate('/');
+    }, 100);
+  };
+
+  const handleCancelLeave = () => {
+    setShowUnsavedWarning(false);
   };
 
   const handleToolSelect = (tool: 'select' | 'draw-wall' | 'measure') => {
@@ -1067,6 +1110,46 @@ function Editor() {
               >
                 OK
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unsaved Changes Warning Dialog */}
+      {showUnsavedWarning && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#16161D] rounded-2xl shadow-2xl max-w-md w-full">
+            {/* Header */}
+            <div className="p-6 border-b border-[#2A2A35]">
+              <h2 className="text-xl font-semibold text-white">Unsaved Changes</h2>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-gray-300 mb-6">
+                You have unsaved changes. What would you like to do?
+              </p>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleSaveAndLeave}
+                  className="w-full px-4 py-3 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                >
+                  Save and Leave
+                </button>
+                <button
+                  onClick={handleLeaveWithoutSaving}
+                  className="w-full px-4 py-3 text-sm font-medium text-gray-300 bg-gray-700 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
+                >
+                  Leave without Saving
+                </button>
+                <button
+                  onClick={handleCancelLeave}
+                  className="w-full px-4 py-3 text-sm font-medium text-gray-400 border border-gray-600 rounded-lg hover:text-white hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>
