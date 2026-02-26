@@ -722,3 +722,46 @@ Feature #85: Deleting project disables button during processing - PASSING
 Feature #86: Placing furniture item twice in quick succession works correctly - PASSING
 
 Status: 44/125 features passing (35.2%)
+
+====================
+Session 14: Feature #96 - Form Validation
+Date: 2026-02-26
+====================
+
+Completed: Feature #96 - PASSING
+
+Feature #96: Project name exceeding max length shows error
+
+Implementation details:
+- Added 255-character max length validation to backend (POST /api/projects)
+- Added 255-character max length validation to frontend (ProjectHub.tsx)
+- Error message: "Project name must be 255 characters or less"
+- Frontend validates before API call (immediate feedback)
+- Backend validates as safety layer (defense in depth)
+
+Testing verification:
+1. Opened Project Hub
+2. Clicked "Create New Project" button
+3. Entered 300-character project name
+4. Clicked "Create Project" button
+5. Verified error message displayed correctly in red alert box
+6. Verified project was NOT created (checked via API)
+7. Modal remained open (user can correct the error)
+8. Zero console errors
+
+Files modified:
+1. backend/src/routes/projects.js
+   - Added name.length > 255 validation check
+   - Returns 400 error with clear message
+
+2. frontend/src/components/ProjectHub.tsx
+   - Added newProjectName.length > 255 validation check
+   - Displays error in createError state
+
+Status: 47/125 features passing (37.6%)
+
+Next priorities:
+- Continue implementing form validation features
+- UI/UX improvements
+- Additional editor features
+- Material and lighting systems
