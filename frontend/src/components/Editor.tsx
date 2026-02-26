@@ -21,6 +21,7 @@ import {
   Settings,
   Plus,
   Download,
+  Upload,
 } from 'lucide-react';
 
 interface Project {
@@ -60,6 +61,10 @@ function Editor() {
 
   // Export state
   const [isExporting, setIsExporting] = useState(false);
+
+  // Floor plan upload state
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showUploadError, setShowUploadError] = useState(false);
 
   // Zustand store
   const {
@@ -410,6 +415,47 @@ function Editor() {
     return true;
   };
 
+  const handleFloorPlanUpload = () => {
+    // Create a hidden file input and trigger it
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png,image/jpeg,image/jpg';
+
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
+      if (!file) return;
+
+      // Validate file type
+      const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+      const validExtensions = ['.png', '.jpg', '.jpeg'];
+
+      const isValidType = validTypes.includes(file.type);
+      const isValidExtension = validExtensions.some(ext =>
+        file.name.toLowerCase().endsWith(ext)
+      );
+
+      if (!isValidType && !isValidExtension) {
+        setUploadError('Please upload a valid image file (PNG, JPG, JPEG)');
+        setShowUploadError(true);
+        return;
+      }
+
+      // TODO: Implement floor plan processing
+      // For now, just show a success message (not an error)
+      console.log('Valid floor plan uploaded:', file.name);
+      setUploadError(null);
+      setShowUploadError(false);
+
+      // In future: send to backend for processing
+      // const formData = new FormData();
+      // formData.append('floorplan', file);
+      // await fetch(`/api/floors/${currentFloorId}/upload-floorplan`, { method: 'POST', body: formData });
+    };
+
+    input.click();
+  };
+
   const handleCreateRoomByDimensions = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -561,6 +607,13 @@ function Editor() {
                 title="Create Room by Dimensions"
               >
                 <Plus className="w-5 h-5" />
+              </button>
+              <button
+                onClick={handleFloorPlanUpload}
+                className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors"
+                title="Upload Floor Plan"
+              >
+                <Upload className="w-5 h-5" />
               </button>
               <button
                 onClick={() => handleToolSelect('place-furniture')}
@@ -874,6 +927,31 @@ function Editor() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Error Modal */}
+      {showUploadError && uploadError && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold text-red-400 mb-4">Invalid File Type</h2>
+
+            <div className="mb-6">
+              <p className="text-gray-300">{uploadError}</p>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowUploadError(false);
+                  setUploadError(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       )}

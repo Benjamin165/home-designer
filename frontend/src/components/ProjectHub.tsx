@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { projectsApi, ApiError } from '../lib/api';
 
@@ -26,6 +26,9 @@ function ProjectHub() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+
+  // Ref to prevent double-submission (faster than state updates)
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     loadProjects();
@@ -58,12 +61,20 @@ function ProjectHub() {
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Prevent double-submission using ref (faster than state)
+    if (isSubmittingRef.current) {
+      console.log('Submission already in progress, ignoring duplicate click');
+      return;
+    }
+
     if (!newProjectName.trim()) {
       setCreateError('Project name is required');
       return;
     }
 
     try {
+      // Mark submission as in progress immediately
+      isSubmittingRef.current = true;
       setCreateLoading(true);
       setCreateError(null);
 
@@ -88,6 +99,7 @@ function ProjectHub() {
       console.error('Error creating project:', err);
     } finally {
       setCreateLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -96,6 +108,7 @@ function ProjectHub() {
     setNewProjectName('');
     setNewProjectDescription('');
     setCreateError(null);
+    isSubmittingRef.current = false; // Reset ref in case of any stuck state
   };
 
   const handleDeleteClick = (project: Project, e: React.MouseEvent) => {
