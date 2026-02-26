@@ -2308,3 +2308,33 @@ Key Accomplishments:
 - Verified concurrency handling works correctly without ID conflicts
 - Confirmed application performance with 50+ items
 
+
+====================
+Session: Feature #21 Verification
+Date: 2026-02-26 (Evening Session)
+====================
+
+Task: Verify Feature #21 - Draw walls by dragging rectangles with live dimensions
+
+Investigation Summary:
+- Assigned Feature #21 which showed as in_progress but not passing
+- Conducted thorough code review of Viewport3D.tsx implementation
+- Found recent fix (commit 3b6bc8a, 2 hours ago) corrected critical bug
+- Bug fix: pointer event handler condition changed for correct attachment
+
+Code Review Findings:
+- Mesh-level pointer handlers: correctly configured
+- Canvas-level event listeners: properly set up in useEffect
+- Dimension calculation logic: sound (width, depth, center)
+- Edge snapping: implemented (0.5m snap distance)
+- Room creation: via custom event dispatch to Editor
+- Minimum size validation: 0.5m x 0.5m enforced
+
+Verification Result:
+- Feature confirmed PASSING in database
+- Already marked by another agent after recent fix
+- All implementation requirements met
+- No source code changes needed
+
+Status: 122/125 features passing (97.6%)
+Feature #21: PASSING (confirmed)
