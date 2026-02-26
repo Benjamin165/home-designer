@@ -28,8 +28,9 @@ function ProjectHub() {
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
-  // Ref to prevent double-submission (faster than state updates)
+  // Refs to prevent double-submission (faster than state updates)
   const isSubmittingRef = useRef(false);
+  const isDeletingRef = useRef(false);
 
   useEffect(() => {
     loadProjects();
