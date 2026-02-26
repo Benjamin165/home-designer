@@ -1,6 +1,6 @@
 import { useEditorStore } from '../store/editorStore';
 import { X, ChevronRight, ChevronLeft, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { roomsApi, furnitureApi } from '../lib/api';
 import { toast } from 'sonner';
 import DeleteRoomDialog from './DeleteRoomDialog';
@@ -14,12 +14,85 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
   const { selectedRoomId, setSelectedRoomId, rooms, floors, currentFloorId, furniturePlacements, setRooms, setFurniturePlacements, unitSystem } = useEditorStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [ceilingHeight, setCeilingHeight] = useState<string>('');
+  const [ceilingHeightError, setCeilingHeightError] = useState<string>('');
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
   const currentFloor = floors.find((f) => f.id === currentFloorId);
 
   // Get furniture in the selected room
   const roomFurniture = furniturePlacements.filter((f) => f.room_id === selectedRoomId);
+
+  // Initialize ceiling height when room selection changes
+  useEffect(() => {
+    if (selectedRoom) {
+      setCeilingHeight(selectedRoom.ceiling_height.toString());
+      setCeilingHeightError('');
+    }
+  }, [selectedRoom?.id]);
+
+  // Handle ceiling height change with validation
+  const handleCeilingHeightChange = (value: string) => {
+    setCeilingHeight(value);
+    setCeilingHeightError('');
+
+    const numValue = parseFloat(value);
+
+    // Validate on blur or when user stops typing
+    if (value && !isNaN(numValue)) {
+      if (numValue < 2.0) {
+        setCeilingHeightError('Ceiling height must be at least 2.0m');
+      } else if (numValue > 10.0) {
+        setCeilingHeightError('Ceiling height cannot exceed 10m');
+      }
+    }
+  };
+
+  // Handle ceiling height save
+  const handleCeilingHeightSave = async () => {
+    if (!selectedRoom) return;
+
+    const numValue = parseFloat(ceilingHeight);
+
+    if (isNaN(numValue)) {
+      setCeilingHeightError('Please enter a valid number');
+      return;
+    }
+
+    if (numValue < 2.0) {
+      setCeilingHeightError('Ceiling height must be at least 2.0m');
+      return;
+    }
+
+    if (numValue > 10.0) {
+      setCeilingHeightError('Ceiling height cannot exceed 10m');
+      return;
+    }
+
+    try {
+      // Update via API
+      await roomsApi.update(selectedRoom.id, {
+        ceiling_height: numValue,
+      });
+
+      // Update local state
+      const updatedRooms = rooms.map((r) =>
+        r.id === selectedRoom.id ? { ...r, ceiling_height: numValue } : r
+      );
+      setRooms(updatedRooms);
+
+      toast.success('Ceiling height updated', {
+        description: `Set to ${numValue}m`,
+      });
+
+      setCeilingHeightError('');
+    } catch (error) {
+      console.error('Error updating ceiling height:', error);
+      toast.error('Failed to update ceiling height', {
+        description: 'Please try again',
+      });
+    }
+  };
 
   const handleDeleteRoom = async (deleteFurniture: boolean) => {
     if (!selectedRoom) return;
@@ -121,15 +194,35 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
                     <span className="text-gray-300 text-sm">Length</span>
                     <span className="text-white font-mono">{formatLength(selectedRoom.dimensions_json.depth, unitSystem)}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-300 text-sm">Ceiling Height</span>
-                    <span className="text-white font-mono">{formatLength(selectedRoom.ceiling_height, unitSystem)}</span>
-                  </div>
                   <div className="flex justify-between items-center pt-2 border-t border-gray-700">
                     <span className="text-gray-300 text-sm">Floor Area</span>
                     <span className="text-white font-mono">{formatArea(selectedRoom.dimensions_json.width * selectedRoom.dimensions_json.depth, unitSystem)}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Ceiling Height (Editable) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Ceiling Height</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="2.0"
+                    max="10.0"
+                    value={ceilingHeight}
+                    onChange={(e) => handleCeilingHeightChange(e.target.value)}
+                    onBlur={handleCeilingHeightSave}
+                    className={`flex-1 px-3 py-2 bg-gray-700/50 border ${
+                      ceilingHeightError ? 'border-red-500' : 'border-gray-600'
+                    } rounded text-white font-mono focus:outline-none focus:border-blue-500 transition-colors`}
+                    placeholder="2.8"
+                  />
+                  <span className="text-gray-400 self-center text-sm">m</span>
+                </div>
+                {ceilingHeightError && (
+                  <p className="text-red-400 text-xs mt-1">{ceilingHeightError}</p>
+                )}
               </div>
 
               {/* Position */}
