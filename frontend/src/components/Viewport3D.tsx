@@ -1,4 +1,4 @@
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useThree, ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Grid, Box } from '@react-three/drei';
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -344,16 +344,26 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
   };
 
   const handlePointerUp = (event: any) => {
+    console.log('[DEBUG handlePointerUp] Called! currentTool:', currentTool, 'isDrawing:', dragState.isDrawing);
+    console.log('[DEBUG handlePointerUp] event:', event);
+    console.log('[DEBUG handlePointerUp] event.point:', event.point);
+
     if (currentTool === 'draw-wall' && dragState.isDrawing) {
       const point = event.point;
       const startPoint = dragState.startPoint!;
+
+      console.log('[DEBUG handlePointerUp] point:', point);
+      console.log('[DEBUG handlePointerUp] startPoint:', startPoint);
 
       // Calculate dimensions
       const width = Math.abs(point.x - startPoint.x);
       const depth = Math.abs(point.z - startPoint.z);
 
+      console.log('[DEBUG handlePointerUp] width:', width, 'depth:', depth);
+
       // Only create room if dimensions are reasonable (> 0.5m)
       if (width > 0.5 && depth > 0.5) {
+        console.log('[DEBUG handlePointerUp] Size check PASSED! Creating room...');
         // Calculate center position
         const centerX = (startPoint.x + point.x) / 2;
         const centerZ = (startPoint.z + point.z) / 2;
@@ -366,9 +376,13 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
           position_z: centerZ,
         };
 
+        console.log('[DEBUG handlePointerUp] Dispatching createRoom event with data:', roomData);
         window.dispatchEvent(
           new CustomEvent('createRoom', { detail: roomData })
         );
+        console.log('[DEBUG handlePointerUp] createRoom event dispatched!');
+      } else {
+        console.log('[DEBUG handlePointerUp] Size check FAILED! width:', width, 'depth:', depth);
       }
 
       // Reset drag state
@@ -451,6 +465,7 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
         ref={planeRef}
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0, 0]}
+        userData={{ isGround: true }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -461,9 +476,9 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
 
       {/* Preview rectangle while drawing */}
       {previewDims && (
-        <group position={[previewDims.centerX, 0.01, previewDims.centerZ]}>
+        <group position={[previewDims.centerX, 0.01, previewDims.centerZ]} raycast={false}>
           {/* Floor preview */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} raycast={false}>
             <planeGeometry args={[previewDims.width, previewDims.depth]} />
             <meshBasicMaterial color="#3b82f6" opacity={0.3} transparent />
           </mesh>
@@ -559,27 +574,27 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
 // Wall preview component
 function WallPreview({ width, depth, height }: { width: number; depth: number; height: number }) {
   return (
-    <group>
+    <group raycast={false}>
       {/* Front wall */}
-      <mesh position={[0, height / 2, depth / 2]}>
+      <mesh position={[0, height / 2, depth / 2]} raycast={false}>
         <boxGeometry args={[width, height, 0.1]} />
         <meshStandardMaterial color="#3b82f6" opacity={0.5} transparent />
       </mesh>
 
       {/* Back wall */}
-      <mesh position={[0, height / 2, -depth / 2]}>
+      <mesh position={[0, height / 2, -depth / 2]} raycast={false}>
         <boxGeometry args={[width, height, 0.1]} />
         <meshStandardMaterial color="#3b82f6" opacity={0.5} transparent />
       </mesh>
 
       {/* Left wall */}
-      <mesh position={[-width / 2, height / 2, 0]}>
+      <mesh position={[-width / 2, height / 2, 0]} raycast={false}>
         <boxGeometry args={[0.1, height, depth]} />
         <meshStandardMaterial color="#3b82f6" opacity={0.5} transparent />
       </mesh>
 
       {/* Right wall */}
-      <mesh position={[width / 2, height / 2, 0]}>
+      <mesh position={[width / 2, height / 2, 0]} raycast={false}>
         <boxGeometry args={[0.1, height, depth]} />
         <meshStandardMaterial color="#3b82f6" opacity={0.5} transparent />
       </mesh>
@@ -601,8 +616,8 @@ function DimensionLabel({ width, depth }: { width: number; depth: number }) {
   };
 
   return (
-    <group position={[0, 2.8 + 0.5, 0]}>
-      <mesh>
+    <group position={[0, 2.8 + 0.5, 0]} raycast={false}>
+      <mesh raycast={false}>
         <boxGeometry args={[2, 0.5, 0.1]} />
         <meshBasicMaterial color="#1e1e28" opacity={0.9} transparent />
       </mesh>
@@ -864,6 +879,16 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
   const height = furniture.height || 1;
   const depth = furniture.depth || 1;
 
+  const selectedFurnitureId = useEditorStore((state) => state.selectedFurnitureId);
+  const setSelectedFurnitureId = useEditorStore((state) => state.setSelectedFurnitureId);
+  const updateFurniturePlacement = useEditorStore((state) => state.updateFurniturePlacement);
+  const currentTool = useEditorStore((state) => state.currentTool);
+
+  const isSelected = selectedFurnitureId === furniture.id;
+  const groupRef = useRef<THREE.Group>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<{ x: number; z: number } | null>(null);
+
   console.log('[DEBUG FurnitureMesh] Rendering furniture:', furniture);
   console.log('[DEBUG FurnitureMesh] Dimensions:', { width, height, depth });
   console.log('[DEBUG FurnitureMesh] Position:', [furniture.position_x, furniture.position_y, furniture.position_z]);
@@ -881,19 +906,105 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
           furniture: furniture
         }
       }));
+      return;
     }
+
+    // Left click - select furniture
+    if (e.button === 0 && currentTool === 'select') {
+      e.stopPropagation();
+      setSelectedFurnitureId(furniture.id);
+
+      // Start drag
+      setIsDragging(true);
+      setDragStart({ x: furniture.position_x, z: furniture.position_z });
+    }
+  };
+
+  const handlePointerMove = (e: any) => {
+    if (!isDragging || !dragStart || currentTool !== 'select') return;
+
+    e.stopPropagation();
+
+    // Get the intersection point with the ground plane (y=0)
+    const point = e.intersections.find((i: any) => i.object.userData?.isGround);
+    if (point) {
+      const newX = point.point.x;
+      const newZ = point.point.z;
+
+      // Update local position immediately for smooth dragging
+      if (groupRef.current) {
+        groupRef.current.position.x = newX;
+        groupRef.current.position.z = newZ;
+      }
+
+      // Update store (but don't save to backend yet)
+      updateFurniturePlacement(furniture.id, {
+        position_x: newX,
+        position_z: newZ,
+      });
+    }
+  };
+
+  const handlePointerUp = async (e: any) => {
+    if (!isDragging) return;
+
+    e.stopPropagation();
+    setIsDragging(false);
+
+    // Save final position to backend
+    if (dragStart) {
+      const newX = furniture.position_x;
+      const newZ = furniture.position_z;
+
+      // Only save if position actually changed
+      if (Math.abs(newX - dragStart.x) > 0.01 || Math.abs(newZ - dragStart.z) > 0.01) {
+        try {
+          await furnitureApi.update(furniture.id, {
+            position_x: newX,
+            position_y: furniture.position_y,
+            position_z: newZ,
+          });
+          console.log('[FurnitureMesh] Position saved to backend:', { x: newX, z: newZ });
+        } catch (error) {
+          console.error('[FurnitureMesh] Failed to save position:', error);
+          toast.error('Failed to save furniture position');
+
+          // Revert position on error
+          updateFurniturePlacement(furniture.id, {
+            position_x: dragStart.x,
+            position_z: dragStart.z,
+          });
+          if (groupRef.current) {
+            groupRef.current.position.x = dragStart.x;
+            groupRef.current.position.z = dragStart.z;
+          }
+        }
+      }
+    }
+
+    setDragStart(null);
   };
 
   return (
     <group
+      ref={groupRef}
       position={[furniture.position_x, furniture.position_y, furniture.position_z]}
       rotation={[furniture.rotation_x || 0, furniture.rotation_y || 0, furniture.rotation_z || 0]}
       scale={[furniture.scale_x || 1, furniture.scale_y || 1, furniture.scale_z || 1]}
       onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
     >
       <Box args={[width, height, depth]} position={[0, height / 2, 0]}>
         <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={0.5} />
       </Box>
+
+      {/* Selection indicator - wireframe box */}
+      {isSelected && (
+        <Box args={[width + 0.1, height + 0.1, depth + 0.1]} position={[0, height / 2, 0]}>
+          <meshBasicMaterial color="#3b82f6" wireframe transparent opacity={0.8} />
+        </Box>
+      )}
     </group>
   );
 }

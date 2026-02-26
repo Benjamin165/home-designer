@@ -139,12 +139,19 @@ function Editor() {
   // Listen for room creation events from 3D viewport
   useEffect(() => {
     const handleCreateRoom = async (event: any) => {
+      console.log('[DEBUG Editor] createRoom event received!', event.detail);
       const { width, depth, position_x, position_z } = event.detail;
+      console.log('[DEBUG Editor] Calling createRoom function with:', { width, depth, position_x, position_z });
       await createRoom(width, depth, position_x, position_z);
+      console.log('[DEBUG Editor] createRoom function completed');
     };
 
+    console.log('[DEBUG Editor] Setting up createRoom event listener');
     window.addEventListener('createRoom', handleCreateRoom);
-    return () => window.removeEventListener('createRoom', handleCreateRoom);
+    return () => {
+      console.log('[DEBUG Editor] Removing createRoom event listener');
+      window.removeEventListener('createRoom', handleCreateRoom);
+    };
   }, [currentFloorId]);
 
   // Listen for dimension updates during room drawing

@@ -104,10 +104,13 @@ interface EditorState {
   setFurniturePlacements: (placements: FurniturePlacement[]) => void;
   addFurniturePlacement: (placement: FurniturePlacement) => void;
   removeFurniturePlacement: (id: number) => void;
+  updateFurniturePlacement: (id: number, updates: Partial<FurniturePlacement>) => void;
 
   // Selection
   selectedRoomId: number | null;
   setSelectedRoomId: (id: number | null) => void;
+  selectedFurnitureId: number | null;
+  setSelectedFurnitureId: (id: number | null) => void;
 
   // Unit system
   unitSystem: 'metric' | 'imperial';
@@ -171,9 +174,18 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((state) => ({
       furniturePlacements: state.furniturePlacements.filter((p) => p.id !== id),
     })),
+  updateFurniturePlacement: (id, updates) =>
+    set((state) => ({
+      furniturePlacements: state.furniturePlacements.map((p) =>
+        p.id === id ? { ...p, ...updates } : p
+      ),
+    })),
 
   selectedRoomId: null,
   setSelectedRoomId: (id) => set({ selectedRoomId: id }),
+
+  selectedFurnitureId: null,
+  setSelectedFurnitureId: (id) => set({ selectedFurnitureId: id }),
 
   unitSystem: 'metric',
   setUnitSystem: (system) => set({ unitSystem: system }),
