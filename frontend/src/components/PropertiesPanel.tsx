@@ -1,110 +1,179 @@
 import { useEditorStore } from '../store/editorStore';
-import { X } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft } from 'lucide-react';
+import { useState } from 'react';
 
-function PropertiesPanel() {
-  const { selectedRoomId, setSelectedRoomId, rooms } = useEditorStore();
+interface PropertiesPanelProps {
+  projectName: string;
+}
+
+function PropertiesPanel({ projectName }: PropertiesPanelProps) {
+  const { selectedRoomId, setSelectedRoomId, rooms, floors, currentFloorId } = useEditorStore();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
+  const currentFloor = floors.find((f) => f.id === currentFloorId);
 
-  if (!selectedRoom) {
-    return null;
+  // Toggle button (always visible)
+  const toggleButton = (
+    <button
+      onClick={() => setIsCollapsed(!isCollapsed)}
+      className="absolute top-20 -left-10 z-10 bg-gray-800/95 border border-gray-700 rounded-l-lg p-2 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+      title={isCollapsed ? 'Expand Properties Panel' : 'Collapse Properties Panel'}
+    >
+      {isCollapsed ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+    </button>
+  );
+
+  // Render collapsed state
+  if (isCollapsed) {
+    return toggleButton;
   }
 
-  const { width, depth } = selectedRoom.dimensions_json;
-  const area = width * depth;
-
   return (
-    <div className="absolute top-16 right-4 w-80 bg-gray-800/95 border border-gray-700 rounded-lg shadow-xl">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
-        <h2 className="text-lg font-semibold text-white">Properties</h2>
-        <button
-          onClick={() => setSelectedRoomId(null)}
-          className="text-gray-400 hover:text-white transition-colors"
-          title="Close"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Content */}
-      <div className="p-4 space-y-4">
-        {/* Room Name */}
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1">Name</label>
-          <div className="text-white font-medium">{selectedRoom.name || 'Unnamed Room'}</div>
+    <>
+      {toggleButton}
+      <div className="absolute top-16 right-4 w-80 bg-gray-800/95 border border-gray-700 rounded-lg shadow-xl max-h-[calc(100vh-6rem)] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 sticky top-0 bg-gray-800/95 z-10">
+          <h2 className="text-lg font-semibold text-white">Properties</h2>
+          {selectedRoom && (
+            <button
+              onClick={() => setSelectedRoomId(null)}
+              className="text-gray-400 hover:text-white transition-colors"
+              title="Deselect Room"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
-        {/* Dimensions */}
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">Dimensions</label>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-300 text-sm">Width</span>
-              <span className="text-white font-mono">{width.toFixed(1)} m</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-300 text-sm">Length</span>
-              <span className="text-white font-mono">{depth.toFixed(1)} m</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-300 text-sm">Ceiling Height</span>
-              <span className="text-white font-mono">{selectedRoom.ceiling_height.toFixed(1)} m</span>
-            </div>
-            <div className="flex justify-between items-center pt-2 border-t border-gray-700">
-              <span className="text-gray-300 text-sm">Floor Area</span>
-              <span className="text-white font-mono">{area.toFixed(2)} m²</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Position */}
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">Position</label>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-300 text-sm">X</span>
-              <span className="text-white font-mono">{selectedRoom.position_x.toFixed(2)} m</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-300 text-sm">Z</span>
-              <span className="text-white font-mono">{selectedRoom.position_z.toFixed(2)} m</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Colors */}
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">Materials</label>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-300 text-sm">Floor</span>
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-6 h-6 rounded border border-gray-600"
-                  style={{ backgroundColor: selectedRoom.floor_color || '#d1d5db' }}
-                />
-                <span className="text-white font-mono text-xs">
-                  {selectedRoom.floor_color || '#d1d5db'}
-                </span>
+        {/* Content */}
+        <div className="p-4 space-y-4">
+          {selectedRoom ? (
+            // Room Properties (when room is selected)
+            <>
+              {/* Room Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Name</label>
+                <div className="text-white font-medium">{selectedRoom.name || 'Unnamed Room'}</div>
               </div>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-300 text-sm">Ceiling</span>
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-6 h-6 rounded border border-gray-600"
-                  style={{ backgroundColor: selectedRoom.ceiling_color || '#f3f4f6' }}
-                />
-                <span className="text-white font-mono text-xs">
-                  {selectedRoom.ceiling_color || '#f3f4f6'}
-                </span>
+
+              {/* Dimensions */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Dimensions</label>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">Width</span>
+                    <span className="text-white font-mono">{selectedRoom.dimensions_json.width.toFixed(1)} m</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">Length</span>
+                    <span className="text-white font-mono">{selectedRoom.dimensions_json.depth.toFixed(1)} m</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">Ceiling Height</span>
+                    <span className="text-white font-mono">{selectedRoom.ceiling_height.toFixed(1)} m</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-700">
+                    <span className="text-gray-300 text-sm">Floor Area</span>
+                    <span className="text-white font-mono">{(selectedRoom.dimensions_json.width * selectedRoom.dimensions_json.depth).toFixed(2)} m²</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+
+              {/* Position */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Position</label>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">X</span>
+                    <span className="text-white font-mono">{selectedRoom.position_x.toFixed(2)} m</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">Z</span>
+                    <span className="text-white font-mono">{selectedRoom.position_z.toFixed(2)} m</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Colors */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Materials</label>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">Floor</span>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-6 h-6 rounded border border-gray-600"
+                        style={{ backgroundColor: selectedRoom.floor_color || '#d1d5db' }}
+                      />
+                      <span className="text-white font-mono text-xs">
+                        {selectedRoom.floor_color || '#d1d5db'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">Ceiling</span>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-6 h-6 rounded border border-gray-600"
+                        style={{ backgroundColor: selectedRoom.ceiling_color || '#f3f4f6' }}
+                      />
+                      <span className="text-white font-mono text-xs">
+                        {selectedRoom.ceiling_color || '#f3f4f6'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            // Project/Floor Overview (when nothing is selected)
+            <>
+              {/* Project Info */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Project</label>
+                <div className="text-white font-medium">{projectName}</div>
+              </div>
+
+              {/* Current Floor */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Current Floor</label>
+                <div className="text-white font-medium">{currentFloor?.name || 'No floor selected'}</div>
+              </div>
+
+              {/* Statistics */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Statistics</label>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">Total Floors</span>
+                    <span className="text-white font-mono">{floors.length}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">Rooms on This Floor</span>
+                    <span className="text-white font-mono">
+                      {rooms.filter(r => r.floor_id === currentFloorId).length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300 text-sm">Total Rooms</span>
+                    <span className="text-white font-mono">{rooms.length}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Help Text */}
+              <div className="pt-4 border-t border-gray-700">
+                <p className="text-sm text-gray-400">
+                  Select a room in the viewport to view and edit its properties.
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

@@ -818,7 +818,7 @@ function Editor() {
           {project && <FloorSwitcher projectId={project.id} />}
 
           {/* Properties Panel */}
-          <PropertiesPanel />
+          <PropertiesPanel projectName={project?.name || 'Untitled Project'} />
 
           {/* Info panel */}
           <div className="absolute bottom-4 left-4 bg-gray-800/90 text-white px-4 py-2 rounded-lg text-sm">
