@@ -1,12 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { projectsApi, ApiError } from '../lib/api';
+import { projectsApi, floorsApi, roomsApi, ApiError } from '../lib/api';
+import { useEditorStore } from '../store/editorStore';
+import Viewport3D from './Viewport3D';
+import {
+  MousePointer2,
+  Square,
+  Ruler,
+  ArrowLeft,
+  Save,
+} from 'lucide-react';
 
 interface Project {
   id: number;
   name: string;
   description?: string;
   thumbnail_path?: string;
+  unit_system: 'metric' | 'imperial';
   created_at: string;
   updated_at: string;
 }
@@ -17,10 +27,47 @@ function Editor() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dimensionText, setDimensionText] = useState<string>('');
+  const dragDataRef = useRef<{ startX: number; startZ: number; width: number; depth: number } | null>(null);
+
+  // Zustand store
+  const {
+    setProjectId,
+    currentTool,
+    setCurrentTool,
+    floors,
+    setFloors,
+    currentFloorId,
+    setCurrentFloorId,
+    rooms,
+    setRooms,
+    addRoom,
+    unitSystem,
+    setUnitSystem,
+  } = useEditorStore();
 
   useEffect(() => {
-    loadProject();
+    if (projectId) {
+      loadProject();
+    }
   }, [projectId]);
+
+  useEffect(() => {
+    if (currentFloorId) {
+      loadRooms();
+    }
+  }, [currentFloorId]);
+
+  // Listen for room creation events from 3D viewport
+  useEffect(() => {
+    const handleCreateRoom = async (event: any) => {
+      const { width, depth, position_x, position_z } = event.detail;
+      await createRoom(width, depth, position_x, position_z);
+    };
+
+    window.addEventListener('createRoom', handleCreateRoom);
+    return () => window.removeEventListener('createRoom', handleCreateRoom);
+  }, [currentFloorId]);
 
   const loadProject = async () => {
     if (!projectId) {
@@ -32,8 +79,15 @@ function Editor() {
     try {
       setLoading(true);
       setError(null);
+
       const data = await projectsApi.getById(parseInt(projectId));
-      setProject(data.project);
+      const proj = data.project;
+      setProject(proj);
+      setProjectId(proj.id);
+      setUnitSystem(proj.unit_system || 'metric');
+
+      // Load floors
+      await loadFloors(proj.id);
     } catch (err) {
       if (err instanceof ApiError && err.userMessage) {
         setError(err.userMessage);
@@ -46,8 +100,83 @@ function Editor() {
     }
   };
 
+  const loadFloors = async (projId: number) => {
+    try {
+      const data = await floorsApi.getByProject(projId);
+      const floorsList = data.floors || [];
+
+      if (floorsList.length === 0) {
+        // Create default floor
+        const newFloorData = await floorsApi.create(projId, {
+          name: 'Ground Floor',
+          level: 0,
+          order_index: 0,
+        });
+        const newFloor = newFloorData.floor;
+        setFloors([newFloor]);
+        setCurrentFloorId(newFloor.id);
+      } else {
+        setFloors(floorsList);
+        setCurrentFloorId(floorsList[0].id);
+      }
+    } catch (err) {
+      console.error('Error loading floors:', err);
+    }
+  };
+
+  const loadRooms = async () => {
+    if (!currentFloorId) return;
+
+    try {
+      const data = await roomsApi.getByFloor(currentFloorId);
+      setRooms(data.rooms || []);
+    } catch (err) {
+      console.error('Error loading rooms:', err);
+    }
+  };
+
+  const createRoom = async (
+    width: number,
+    depth: number,
+    position_x: number,
+    position_z: number
+  ) => {
+    if (!currentFloorId) {
+      console.error('No floor selected');
+      return;
+    }
+
+    try {
+      const roomData = {
+        name: `Room ${rooms.length + 1}`,
+        dimensions_json: {
+          width,
+          depth,
+        },
+        position_x,
+        position_y: 0,
+        position_z,
+        ceiling_height: 2.8,
+        floor_color: '#d1d5db',
+        ceiling_color: '#f3f4f6',
+      };
+
+      const data = await roomsApi.create(currentFloorId, roomData);
+      addRoom(data.room);
+
+      console.log('Room created:', data.room);
+    } catch (err) {
+      console.error('Error creating room:', err);
+      setError('Failed to create room');
+    }
+  };
+
   const handleBackToProjects = () => {
     navigate('/');
+  };
+
+  const handleToolSelect = (tool: 'select' | 'draw-wall' | 'measure') => {
+    setCurrentTool(tool);
   };
 
   if (loading) {
@@ -91,19 +220,7 @@ function Editor() {
               className="text-gray-400 hover:text-white transition-colors"
               title="Back to Projects"
             >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                />
-              </svg>
+              <ArrowLeft className="w-6 h-6" />
             </button>
             <div>
               <h1 className="text-lg font-semibold text-white">{project.name}</h1>
@@ -112,43 +229,94 @@ function Editor() {
               )}
             </div>
           </div>
+
+          {/* Tools */}
           <div className="flex items-center gap-2">
-            <button className="px-3 py-1.5 text-sm bg-gray-700 text-gray-200 rounded hover:bg-gray-600 transition-colors">
+            <div className="flex items-center bg-gray-700 rounded-lg p-1 gap-1">
+              <button
+                onClick={() => handleToolSelect('select')}
+                className={`p-2 rounded transition-colors ${
+                  currentTool === 'select'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-600'
+                }`}
+                title="Select"
+              >
+                <MousePointer2 className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => handleToolSelect('draw-wall')}
+                className={`p-2 rounded transition-colors ${
+                  currentTool === 'draw-wall'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-600'
+                }`}
+                title="Draw Wall"
+              >
+                <Square className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => handleToolSelect('measure')}
+                className={`p-2 rounded transition-colors ${
+                  currentTool === 'measure'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-600'
+                }`}
+                title="Measure"
+              >
+                <Ruler className="w-5 h-5" />
+              </button>
+            </div>
+
+            <button className="px-3 py-2 flex items-center gap-2 text-sm bg-gray-700 text-gray-200 rounded hover:bg-gray-600 transition-colors">
+              <Save className="w-4 h-4" />
               Save
             </button>
           </div>
         </div>
       </header>
 
-      {/* Editor Content */}
-      <main className="flex-1 flex items-center justify-center p-8">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gray-800 rounded-lg flex items-center justify-center mx-auto mb-4">
-            <svg
-              className="w-8 h-8 text-gray-500"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 5a1 1 0 011-1h4a1 1 0 010 2H6v10h10v-3a1 1 0 112 0v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 3h6v6M10 14l9.5-9.5"
-              />
-            </svg>
+      {/* Editor Content with 3D Viewport */}
+      <main className="flex-1 relative overflow-hidden">
+        <Viewport3D />
+
+        {/* Info panel */}
+        <div className="absolute bottom-4 left-4 bg-gray-800/90 text-white px-4 py-2 rounded-lg text-sm">
+          <div className="flex items-center gap-4">
+            <div>
+              <span className="text-gray-400">Tool: </span>
+              <span className="font-medium capitalize">
+                {currentTool === 'draw-wall' ? 'Draw Wall' : currentTool}
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-400">Rooms: </span>
+              <span className="font-medium">{rooms.length}</span>
+            </div>
+            <div>
+              <span className="text-gray-400">Floor: </span>
+              <span className="font-medium">
+                {floors.find((f) => f.id === currentFloorId)?.name || 'None'}
+              </span>
+            </div>
           </div>
-          <h2 className="text-xl font-medium text-gray-200 mb-2">3D Editor</h2>
-          <p className="text-gray-400 max-w-md">
-            The 3D editor view will be implemented here. This is where users will design their rooms and place furniture.
-          </p>
         </div>
+
+        {/* Instructions overlay */}
+        {currentTool === 'draw-wall' && rooms.length === 0 && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
+            <div className="bg-gray-800/95 text-white px-8 py-6 rounded-xl shadow-2xl max-w-md">
+              <Square className="w-12 h-12 mx-auto mb-4 text-blue-400" />
+              <h3 className="text-xl font-semibold mb-2">Draw Your First Room</h3>
+              <p className="text-gray-300 mb-4">
+                Click and drag in the viewport to create a rectangular room. Dimensions will be displayed in real-time.
+              </p>
+              <p className="text-sm text-gray-400">
+                Minimum size: 0.5m × 0.5m
+              </p>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

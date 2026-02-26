@@ -14,12 +14,17 @@ export class ApiError extends Error {
 }
 
 /**
- * Fetch wrapper with user-friendly error handling
+ * Fetch wrapper with user-friendly error handling and timeout support
  */
 async function fetchWithErrorHandling(
   url: string,
-  options?: RequestInit
+  options?: RequestInit,
+  timeoutMs = 30000 // 30 second default timeout
 ): Promise<Response> {
+  // Create an AbortController for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const response = await fetch(url, {
       ...options,
@@ -27,7 +32,10 @@ async function fetchWithErrorHandling(
         'Content-Type': 'application/json',
         ...options?.headers,
       },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       // Handle different HTTP error codes with user-friendly messages
@@ -50,12 +58,23 @@ async function fetchWithErrorHandling(
 
     return response;
   } catch (error) {
+    clearTimeout(timeoutId);
+
     // Handle network errors (backend down, no internet, etc.)
     if (error instanceof ApiError) {
       throw error;
     }
 
-    // Network errors (connection refused, timeout, DNS failures, etc.)
+    // Handle timeout errors (AbortError)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError(
+        'Request timeout',
+        undefined,
+        'The request took too long to complete. Please try again.'
+      );
+    }
+
+    // Network errors (connection refused, DNS failures, etc.)
     // Fetch API throws TypeError for network failures
     if (error instanceof TypeError) {
       throw new ApiError(
@@ -104,6 +123,79 @@ export const projectsApi = {
 
   async delete(id: number) {
     const response = await fetchWithErrorHandling(`${API_BASE_URL}/projects/${id}`, {
+      method: 'DELETE',
+    });
+    return response.json();
+  },
+};
+
+// Floors API methods
+export const floorsApi = {
+  async getByProject(projectId: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/projects/${projectId}/floors`);
+    return response.json();
+  },
+
+  async create(projectId: number, data: { name: string; level: number; order_index: number }) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/projects/${projectId}/floors`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async update(id: number, data: { name?: string; level?: number; order_index?: number }) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/floors/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async delete(id: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/floors/${id}`, {
+      method: 'DELETE',
+    });
+    return response.json();
+  },
+};
+
+// Rooms API methods
+export const roomsApi = {
+  async getByFloor(floorId: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/floors/${floorId}/rooms`);
+    return response.json();
+  },
+
+  async create(floorId: number, data: {
+    name?: string;
+    dimensions_json: any;
+    floor_material?: string;
+    floor_color?: string;
+    ceiling_height?: number;
+    ceiling_material?: string;
+    ceiling_color?: string;
+    position_x?: number;
+    position_y?: number;
+    position_z?: number;
+  }) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/floors/${floorId}/rooms`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async update(id: number, data: any) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/rooms/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async delete(id: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/rooms/${id}`, {
       method: 'DELETE',
     });
     return response.json();
