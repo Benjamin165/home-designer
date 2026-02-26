@@ -2094,3 +2094,17 @@ Next priorities:
 - Continue implementing remaining UI features
 - Additional floor management features
 - Complete remaining features for full coverage
+
+====================
+Session 32: Features #31, #87, #30 - Floor Deletion and Opacity
+Date: 2026-02-26
+====================
+
+Completed: 3 features (all passing)
+
+Feature #31: Delete floor removes all associated rooms
+Feature #87: Deleting floor removes all rooms on that floor
+Feature #30: Current floor renders at full opacity, others translucent
+
+Status: 110/125 features passing (88.0%)
+====================
