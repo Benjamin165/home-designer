@@ -191,6 +191,12 @@ function Editor() {
       const { asset, position } = event.detail;
       console.log('[DEBUG Editor] placeFurniture event received!', { asset, position });
 
+      // Validate position object
+      if (!position || typeof position.x !== 'number' || typeof position.z !== 'number') {
+        console.error('[ERROR] Invalid position object:', position);
+        return;
+      }
+
       // Find which room contains the drop position
       const targetRoom = rooms.find((room) => {
         const width = room.dimensions_json?.width || 4;
@@ -223,9 +229,9 @@ function Editor() {
 
         const data = await furnitureApi.create(roomId, {
           asset_id: asset.id,
-          position_x: position.x,
-          position_y: position.y,
-          position_z: position.z,
+          position_x: position.x ?? 0,
+          position_y: position.y ?? 0,
+          position_z: position.z ?? 0,
           rotation_x: 0,
           rotation_y: 0,
           rotation_z: 0,

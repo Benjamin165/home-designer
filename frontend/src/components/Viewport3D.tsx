@@ -153,7 +153,7 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
 
   const planeRef = useRef<THREE.Mesh>(null);
   const controlsRef = useRef<OrbitControlsImpl>(null);
-  const { camera, gl } = useThree();
+  const { camera, gl, scene } = useThree();
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -305,6 +305,25 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
 
     return () => clearInterval(saveInterval);
   }, [currentFloorId, camera, setCameraPosition]);
+
+  // Handle scene export request
+  useEffect(() => {
+    const handleExportRequest = () => {
+      try {
+        // Dispatch the scene object back to the requester
+        window.dispatchEvent(new CustomEvent('sceneExportReady', {
+          detail: { scene }
+        }));
+      } catch (error) {
+        window.dispatchEvent(new CustomEvent('sceneExportReady', {
+          detail: { error: error instanceof Error ? error.message : 'Export failed' }
+        }));
+      }
+    };
+
+    window.addEventListener('requestSceneExport', handleExportRequest);
+    return () => window.removeEventListener('requestSceneExport', handleExportRequest);
+  }, [scene]);
 
   // Handle mouse events for wall drawing and context menu
   const handlePointerDown = (event: any) => {
@@ -1523,6 +1542,12 @@ export default function Viewport3D() {
   useEffect(() => {
     const handleDropFurniture = async (event: any) => {
       const { asset, position } = event.detail;
+
+      // Validate position object
+      if (!position || typeof position.x !== 'number' || typeof position.z !== 'number') {
+        console.error('[ERROR handleDropFurniture] Invalid position:', position);
+        return;
+      }
 
       // Find which room the furniture was dropped into
       const targetRoom = rooms.find((room) => {

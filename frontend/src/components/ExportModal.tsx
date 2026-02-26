@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Download, FileText, Image, Box } from 'lucide-react';
 import { exportApi } from '../lib/api';
 import { toast } from 'sonner';
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -51,14 +52,95 @@ const ExportModal: React.FC<ExportModalProps> = ({
         toast.success('Floor plan exported successfully!');
         onClose();
       } else if (selectedType === 'screenshot') {
-        toast.info('Screenshot export coming soon!');
+        // Capture screenshot from Three.js canvas
+        const canvas = document.querySelector('canvas');
+        if (!canvas) {
+          throw new Error('Canvas not found');
+        }
+
+        // Convert canvas to blob
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            toast.error('Failed to capture screenshot');
+            setIsExporting(false);
+            return;
+          }
+
+          // Create download link
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const fileName = `${projectName.replace(/[^a-z0-9]/gi, '_')}_screenshot_${new Date().getTime()}.png`;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+
+          toast.success('Screenshot captured successfully!');
+          setIsExporting(false);
+          onClose();
+        }, 'image/png', 1.0); // High quality PNG
       } else if (selectedType === 'scene') {
-        toast.info('3D scene export coming soon!');
+        // Export 3D scene as GLB
+        // Dispatch custom event to request scene export from Viewport3D
+        const exportPromise = new Promise<any>((resolve, reject) => {
+          const handler = (event: any) => {
+            window.removeEventListener('sceneExportReady', handler);
+            if (event.detail.error) {
+              reject(new Error(event.detail.error));
+            } else {
+              resolve(event.detail.scene);
+            }
+          };
+          window.addEventListener('sceneExportReady', handler);
+
+          // Request scene export
+          window.dispatchEvent(new CustomEvent('requestSceneExport'));
+
+          // Timeout after 10 seconds
+          setTimeout(() => {
+            window.removeEventListener('sceneExportReady', handler);
+            reject(new Error('Export timeout'));
+          }, 10000);
+        });
+
+        const scene = await exportPromise;
+
+        // Use GLTFExporter to export the scene
+        const exporter = new GLTFExporter();
+        exporter.parse(
+          scene,
+          (result) => {
+            // result is an ArrayBuffer for GLB format
+            const blob = new Blob([result as ArrayBuffer], { type: 'model/gltf-binary' });
+
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const fileName = `${projectName.replace(/[^a-z0-9]/gi, '_')}_scene.glb`;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('3D scene exported successfully!');
+            setIsExporting(false);
+            onClose();
+          },
+          (error) => {
+            console.error('GLTFExporter error:', error);
+            toast.error('Failed to export 3D scene');
+            setIsExporting(false);
+          },
+          { binary: true } // Export as GLB (binary format)
+        );
       }
     } catch (error: any) {
       console.error('Export failed:', error);
       toast.error(error.userMessage || 'Failed to export. Please try again.');
-    } finally {
       setIsExporting(false);
     }
   };
@@ -125,7 +207,6 @@ const ExportModal: React.FC<ExportModalProps> = ({
                 <div className="text-sm text-gray-400 mt-1">
                   High-resolution render from current camera view
                 </div>
-                <div className="text-xs text-amber-500 mt-1">Coming soon</div>
               </div>
             </button>
 
@@ -147,7 +228,6 @@ const ExportModal: React.FC<ExportModalProps> = ({
                 <div className="text-sm text-gray-400 mt-1">
                   Export full 3D model for use in other applications
                 </div>
-                <div className="text-xs text-amber-500 mt-1">Coming soon</div>
               </div>
             </button>
           </div>
@@ -197,7 +277,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
           </button>
           <button
             onClick={handleExport}
-            disabled={isExporting || (selectedType !== 'floorplan')}
+            disabled={isExporting}
             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             {isExporting ? (
