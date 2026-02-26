@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { assetsApi } from '../lib/api';
 import { useEditorStore } from '../store/editorStore';
 import { Package, Sofa, Lightbulb, Flower2, Frame, ChevronLeft, ChevronRight, Search, X, Sparkles, Star } from 'lucide-react';
 import AIGenerationModal from './AIGenerationModal';
+import AssetDetailsModal from './AssetDetailsModal';
 import { toast } from 'sonner';
 
 interface Asset {
@@ -35,6 +36,9 @@ export default function AssetLibrary() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const isDraggingRef = useRef(false);
   const { setDraggingAsset } = useEditorStore();
 
   useEffect(() => {
@@ -82,13 +86,23 @@ export default function AssetLibrary() {
   };
 
   const handleDragStart = (asset: Asset) => (e: React.DragEvent) => {
+    isDraggingRef.current = true;
     setDraggingAsset({ id: asset.id, name: asset.name });
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData('application/json', JSON.stringify(asset));
   };
 
   const handleDragEnd = () => {
+    isDraggingRef.current = false;
     setDraggingAsset(null);
+  };
+
+  const handleAssetClick = (asset: Asset) => {
+    // Only open details if user clicked (not dragged)
+    if (!isDraggingRef.current) {
+      setSelectedAsset(asset);
+      setShowDetailsModal(true);
+    }
   };
 
   // Get unique categories
@@ -252,7 +266,8 @@ export default function AssetLibrary() {
                 draggable
                 onDragStart={handleDragStart(asset)}
                 onDragEnd={handleDragEnd}
-                className="bg-gray-700 rounded-lg p-3 cursor-grab active:cursor-grabbing hover:bg-gray-600 transition-colors group relative"
+                onClick={() => handleAssetClick(asset)}
+                className="bg-gray-700 rounded-lg p-3 cursor-pointer hover:bg-gray-600 transition-colors group relative"
               >
                 {/* Favorite star button */}
                 <button
@@ -312,6 +327,16 @@ export default function AssetLibrary() {
         onClose={() => setShowAIModal(false)}
         onSuccess={() => {
           loadAssets(); // Refresh asset list
+        }}
+      />
+
+      {/* Asset Details Modal */}
+      <AssetDetailsModal
+        asset={selectedAsset}
+        isOpen={showDetailsModal}
+        onClose={() => {
+          setShowDetailsModal(false);
+          setSelectedAsset(null);
         }}
       />
     </div>

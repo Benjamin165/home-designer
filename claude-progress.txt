@@ -1529,3 +1529,25 @@ Next priorities:
 - Material and lighting systems
 - Advanced furniture features
 
+
+
+====================
+Session: Features #21, #44, #42
+Date: 2026-02-26 Time: 15:21-15:40
+====================
+
+FEATURE #21: Draw walls by dragging rectangles with live dimensions - SIGNIFICANT PROGRESS
+
+Implemented:
+1. Dimension display HTML overlay (Editor.tsx)
+2. Fixed OrbitControls interference (Viewport3D.tsx)
+3. Fixed plane raycasting (Viewport3D.tsx)
+
+Status: Ready for manual browser testing
+Commit: db0599c
+
+FEATURE #44: Change floor material - Analyzed but not implemented
+FEATURE #42: Not started
+
+Current: 81/125 features passing (64.8%)
+
