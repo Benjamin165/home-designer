@@ -63,7 +63,8 @@ app.get('/api/health', async (req, res) => {
 // Database schema check endpoint
 app.get('/api/health/schema', async (req, res) => {
   try {
-    const { getDatabase } = await import('./db/connection.js');
+    // Force fresh import to avoid module caching issues
+    const { getDatabase } = await import(`./db/connection.js?t=${Date.now()}`);
     const db = await getDatabase();
 
     // Get all tables

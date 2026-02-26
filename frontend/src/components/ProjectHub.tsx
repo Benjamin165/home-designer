@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { projectsApi, ApiError } from '../lib/api';
 
 interface Project {
@@ -11,6 +12,7 @@ interface Project {
 }
 
 function ProjectHub() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -181,6 +183,7 @@ function ProjectHub() {
             {projects.map((project) => (
               <div
                 key={project.id}
+                onClick={() => navigate(`/editor/${project.id}`)}
                 className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer overflow-hidden"
               >
                 <div className="h-48 bg-gray-200 flex items-center justify-center">
