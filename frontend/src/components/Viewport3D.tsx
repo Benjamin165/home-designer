@@ -195,6 +195,51 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
     }
   }, [draggingAsset]);
 
+  // Handle dropFurniture event from HTML5 drag-and-drop
+  useEffect(() => {
+    const handleDropFurnitureEvent = (event: any) => {
+      const { asset, screenPosition, canvasRect } = event.detail;
+      console.log('[DEBUG Scene] dropFurniture event received!', { asset, screenPosition });
+
+      // Convert screen position to normalized device coordinates
+      const x = ((screenPosition.x - canvasRect.left) / canvasRect.width) * 2 - 1;
+      const y = -((screenPosition.y - canvasRect.top) / canvasRect.height) * 2 + 1;
+
+      // Perform raycasting to find 3D position
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2(x, y);
+      raycaster.setFromCamera(pointer, camera);
+
+      // Raycast against ground plane
+      const planeGeometry = new THREE.PlaneGeometry(100, 100);
+      const planeMesh = new THREE.Mesh(planeGeometry);
+      planeMesh.rotation.x = -Math.PI / 2;
+      planeMesh.position.set(0, 0, 0);
+      planeMesh.updateMatrixWorld();
+
+      const intersects = raycaster.intersectObject(planeMesh);
+      if (intersects.length > 0) {
+        const point = intersects[0].point;
+        console.log('[DEBUG Scene] Drop position:', point);
+
+        // Dispatch placement event with 3D coordinates
+        window.dispatchEvent(
+          new CustomEvent('placeFurniture', {
+            detail: {
+              asset,
+              position: { x: point.x, y: 0, z: point.z },
+            },
+          })
+        );
+      }
+    };
+
+    window.addEventListener('dropFurniture', handleDropFurnitureEvent);
+    return () => {
+      window.removeEventListener('dropFurniture', handleDropFurnitureEvent);
+    };
+  }, [camera]);
+
   // Animate lighting transitions when mode changes
   useEffect(() => {
     const targetAmbient = lightingMode === 'day' ? 0.5 : 0.15;
@@ -450,6 +495,54 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
 
+    const handleCanvasPointerDown = (e: PointerEvent) => {
+      console.log('[DEBUG handleCanvasPointerDown] Called! Button:', e.button);
+
+      // Only handle left-click
+      if (e.button !== 0) return;
+
+      // Convert mouse position to normalized device coordinates
+      const rect = canvas.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      // Raycast to find intersection with ground plane
+      raycaster.setFromCamera(pointer, camera);
+      const planeGeometry = new THREE.PlaneGeometry(100, 100);
+      const planeMesh = new THREE.Mesh(planeGeometry);
+      planeMesh.rotation.x = -Math.PI / 2;
+      planeMesh.position.set(0, 0, 0);
+      planeMesh.updateMatrixWorld();
+
+      const intersects = raycaster.intersectObject(planeMesh);
+      if (intersects.length > 0) {
+        const point = intersects[0].point;
+        console.log('[DEBUG handleCanvasPointerDown] Intersection point:', point);
+
+        // Check if starting near an existing room edge
+        const snapEdge = findSnapEdge(point, rooms);
+        let snappedStartPoint = { x: point.x, z: point.z };
+
+        if (snapEdge) {
+          // Snap the start point to the edge
+          if (snapEdge.isHorizontal) {
+            snappedStartPoint.z = snapEdge.z;
+          } else {
+            snappedStartPoint.x = snapEdge.x;
+          }
+          console.log('[DEBUG handleCanvasPointerDown] Snapping to edge:', snapEdge.edge);
+        }
+
+        console.log('[DEBUG handleCanvasPointerDown] Setting dragState with startPoint:', snappedStartPoint);
+        setDragState({
+          isDrawing: true,
+          startPoint: snappedStartPoint,
+          currentPoint: snappedStartPoint,
+          snappedEdge: snapEdge,
+        });
+      }
+    };
+
     const handleCanvasPointerMove = (e: PointerEvent) => {
       if (!dragStateRef.current.isDrawing) return;
 
@@ -557,10 +650,12 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
       });
     };
 
+    canvas.addEventListener('pointerdown', handleCanvasPointerDown);
     canvas.addEventListener('pointermove', handleCanvasPointerMove);
     canvas.addEventListener('pointerup', handleCanvasPointerUp);
 
     return () => {
+      canvas.removeEventListener('pointerdown', handleCanvasPointerDown);
       canvas.removeEventListener('pointermove', handleCanvasPointerMove);
       canvas.removeEventListener('pointerup', handleCanvasPointerUp);
     };
@@ -1531,7 +1626,29 @@ export default function Viewport3D() {
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    // The actual drop is handled by the 3D scene's raycasting
+
+    if (!draggingAsset) return;
+
+    // Get the canvas element and perform raycast to find 3D position
+    const canvas = e.currentTarget.querySelector('canvas');
+    if (!canvas) return;
+
+    // Calculate mouse position relative to canvas
+    const rect = canvas.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    // Dispatch drop event with calculated position
+    // The Scene component will handle the actual raycasting and placement
+    window.dispatchEvent(
+      new CustomEvent('dropFurniture', {
+        detail: {
+          asset: draggingAsset,
+          screenPosition: { x: e.clientX, y: e.clientY },
+          canvasRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+        },
+      })
+    );
   };
 
   return (

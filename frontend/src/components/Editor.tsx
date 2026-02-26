@@ -185,6 +185,76 @@ function Editor() {
     };
   }, [unitSystem]);
 
+  // Listen for furniture placement events from 3D viewport
+  useEffect(() => {
+    const handlePlaceFurniture = async (event: any) => {
+      const { asset, position } = event.detail;
+      console.log('[DEBUG Editor] placeFurniture event received!', { asset, position });
+
+      // Find which room contains the drop position
+      const targetRoom = rooms.find((room) => {
+        const width = room.dimensions_json?.width || 4;
+        const depth = room.dimensions_json?.depth || 4;
+        const roomX = room.position_x || 0;
+        const roomZ = room.position_z || 0;
+
+        // Check if position is inside room bounds
+        const minX = roomX - width / 2;
+        const maxX = roomX + width / 2;
+        const minZ = roomZ - depth / 2;
+        const maxZ = roomZ + depth / 2;
+
+        return position.x >= minX && position.x <= maxX && position.z >= minZ && position.z <= maxZ;
+      });
+
+      if (!targetRoom) {
+        console.error('[ERROR] No room found at drop position:', position);
+        // Still allow placement outside rooms (furniture can be placed anywhere)
+        // Use the first room as fallback, or create without room association
+        if (rooms.length === 0) {
+          console.error('[ERROR] No rooms exist, cannot place furniture');
+          return;
+        }
+      }
+
+      try {
+        const roomId = targetRoom ? targetRoom.id : rooms[0].id;
+        console.log('[DEBUG Editor] Placing furniture in room:', roomId);
+
+        const data = await furnitureApi.create(roomId, {
+          asset_id: asset.id,
+          position_x: position.x,
+          position_y: position.y,
+          position_z: position.z,
+          rotation_x: 0,
+          rotation_y: 0,
+          rotation_z: 0,
+          scale_x: 1,
+          scale_y: 1,
+          scale_z: 1,
+        });
+
+        addFurniturePlacement(data.furniture);
+
+        // Record action in history
+        addAction({
+          type: 'furniture_add',
+          description: `Placed ${asset.name}`,
+          data: { furniture: data.furniture },
+        });
+
+        console.log('[DEBUG Editor] Furniture placed successfully:', data.furniture.id);
+      } catch (error) {
+        console.error('[ERROR] Failed to place furniture:', error);
+      }
+    };
+
+    window.addEventListener('placeFurniture', handlePlaceFurniture);
+    return () => {
+      window.removeEventListener('placeFurniture', handlePlaceFurniture);
+    };
+  }, [rooms, addFurniturePlacement, addAction]);
+
   // Keyboard shortcuts for undo/redo and copy/paste
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
