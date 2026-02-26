@@ -1538,14 +1538,14 @@ export default function Viewport3D() {
     };
   }, []);
 
-  // Listen for furniture drop events from the 3D scene
+  // Listen for furniture placement events from the 3D scene (after raycasting)
   useEffect(() => {
-    const handleDropFurniture = async (event: any) => {
+    const handlePlaceFurniture = async (event: any) => {
       const { asset, position } = event.detail;
 
       // Validate position object
       if (!position || typeof position.x !== 'number' || typeof position.z !== 'number') {
-        console.error('[ERROR handleDropFurniture] Invalid position:', position);
+        console.error('[ERROR handlePlaceFurniture] Invalid position:', position);
         return;
       }
 
@@ -1607,8 +1607,8 @@ export default function Viewport3D() {
       }
     };
 
-    window.addEventListener('dropFurniture', handleDropFurniture);
-    return () => window.removeEventListener('dropFurniture', handleDropFurniture);
+    window.addEventListener('placeFurniture', handlePlaceFurniture);
+    return () => window.removeEventListener('placeFurniture', handlePlaceFurniture);
   }, [rooms, addFurniturePlacement]);
 
   // Context menu handlers
