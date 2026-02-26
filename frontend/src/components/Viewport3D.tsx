@@ -3,7 +3,7 @@ import { OrbitControls, Grid, Box } from '@react-three/drei';
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useEditorStore } from '../store/editorStore';
-import { furnitureApi } from '../lib/api';
+import { furnitureApi, roomsApi } from '../lib/api';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { Sun, Moon } from 'lucide-react';
@@ -16,7 +16,7 @@ interface DragState {
   currentPoint: { x: number; z: number } | null;
 }
 
-function Scene() {
+function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, furniture: any) => void }) {
   const currentTool = useEditorStore((state) => state.currentTool);
   const rooms = useEditorStore((state) => state.rooms);
   const furniturePlacements = useEditorStore((state) => state.furniturePlacements);
@@ -154,8 +154,24 @@ function Scene() {
     return () => clearInterval(saveInterval);
   }, [currentFloorId, camera, setCameraPosition]);
 
-  // Handle mouse events for wall drawing
+  // Handle mouse events for wall drawing and context menu
   const handlePointerDown = (event: any) => {
+    console.log('[DEBUG handlePointerDown] Button:', event.button);
+
+    // Check for right-click (button 2)
+    if (event.button === 2) {
+      console.log('[DEBUG] Right-click detected on plane, dispatching context menu event');
+      // Trigger context menu for empty space
+      window.dispatchEvent(new CustomEvent('canvasContextMenu', {
+        detail: {
+          clientX: event.nativeEvent.clientX,
+          clientY: event.nativeEvent.clientY,
+          type: 'empty'
+        }
+      }));
+      return;
+    }
+
     if (currentTool !== 'draw-wall') return;
 
     const point = event.point;
@@ -331,7 +347,7 @@ function Scene() {
 
       {/* Render furniture */}
       {furniturePlacements.map((furniture) => (
-        <FurnitureMesh key={furniture.id} furniture={furniture} />
+        <FurnitureMesh key={furniture.id} furniture={furniture} onContextMenu={onFurnitureContextMenu} />
       ))}
 
       {/* Furniture preview while dragging */}
@@ -410,15 +426,31 @@ function DimensionLabel({ width, depth }: { width: number; depth: number }) {
   );
 }
 
-// Room mesh component
+// Room mesh component with draggable walls
 function RoomMesh({ room }: { room: any }) {
-  const width = room.dimensions_json.width || 4;
-  const depth = room.dimensions_json.depth || 4;
+  const [dragState, setDragState] = useState<{
+    isDragging: boolean;
+    edge: 'front' | 'back' | 'left' | 'right' | null;
+    startWidth: number;
+    startDepth: number;
+    startPointer: { x: number; z: number } | null;
+  } | null>(null);
+
+  const [tempDimensions, setTempDimensions] = useState<{ width: number; depth: number } | null>(null);
+
+  const width = tempDimensions?.width || room.dimensions_json.width || 4;
+  const depth = tempDimensions?.depth || room.dimensions_json.depth || 4;
   const height = room.ceiling_height || 2.8;
   const posX = room.position_x || 0;
   const posZ = room.position_z || 0;
+
   const setSelectedRoomId = useEditorStore((state) => state.setSelectedRoomId);
+  const setRooms = useEditorStore((state) => state.setRooms);
+  const rooms = useEditorStore((state) => state.rooms);
   const currentTool = useEditorStore((state) => state.currentTool);
+  const selectedRoomId = useEditorStore((state) => state.selectedRoomId);
+
+  const isSelected = selectedRoomId === room.id;
 
   const handleClick = (e: any) => {
     // Only select room when using select tool
@@ -426,6 +458,80 @@ function RoomMesh({ room }: { room: any }) {
       e.stopPropagation();
       setSelectedRoomId(room.id);
     }
+  };
+
+  const handleEdgeDragStart = (edge: 'front' | 'back' | 'left' | 'right', e: any) => {
+    if (currentTool !== 'select') return;
+
+    e.stopPropagation();
+    setDragState({
+      isDragging: true,
+      edge,
+      startWidth: room.dimensions_json.width,
+      startDepth: room.dimensions_json.depth,
+      startPointer: { x: e.point.x, z: e.point.z },
+    });
+  };
+
+  const handleEdgeDrag = (e: any) => {
+    if (!dragState?.isDragging || !dragState.startPointer) return;
+
+    const deltaX = e.point.x - dragState.startPointer.x;
+    const deltaZ = e.point.z - dragState.startPointer.z;
+
+    let newWidth = dragState.startWidth;
+    let newDepth = dragState.startDepth;
+
+    // Adjust dimensions based on which edge is being dragged
+    switch (dragState.edge) {
+      case 'front': // +Z direction
+        newDepth = Math.max(1, dragState.startDepth + deltaZ);
+        break;
+      case 'back': // -Z direction
+        newDepth = Math.max(1, dragState.startDepth - deltaZ);
+        break;
+      case 'right': // +X direction
+        newWidth = Math.max(1, dragState.startWidth + deltaX);
+        break;
+      case 'left': // -X direction
+        newWidth = Math.max(1, dragState.startWidth - deltaX);
+        break;
+    }
+
+    setTempDimensions({ width: newWidth, depth: newDepth });
+  };
+
+  const handleEdgeDragEnd = async () => {
+    if (!dragState?.isDragging || !tempDimensions) {
+      setDragState(null);
+      return;
+    }
+
+    try {
+      // Update room via API
+      const updatedRoom = await roomsApi.update(room.id, {
+        dimensions_json: {
+          width: tempDimensions.width,
+          depth: tempDimensions.depth,
+        },
+      });
+
+      // Update Zustand store
+      const updatedRooms = rooms.map((r) =>
+        r.id === room.id ? { ...r, dimensions_json: updatedRoom.room.dimensions_json } : r
+      );
+      setRooms(updatedRooms);
+
+      toast.success('Room resized', {
+        description: `${tempDimensions.width.toFixed(1)}m × ${tempDimensions.depth.toFixed(1)}m`,
+      });
+    } catch (error) {
+      console.error('Error updating room:', error);
+      toast.error('Failed to resize room');
+    }
+
+    setDragState(null);
+    setTempDimensions(null);
   };
 
   return (
@@ -466,12 +572,70 @@ function RoomMesh({ room }: { room: any }) {
         <boxGeometry args={[0.15, height, depth]} />
         <meshStandardMaterial color="#e5e7eb" />
       </mesh>
+
+      {/* Draggable edge handles - only show when room is selected */}
+      {isSelected && currentTool === 'select' && (
+        <>
+          {/* Front edge handle (+Z) */}
+          <mesh
+            position={[0, 0.5, depth / 2]}
+            onPointerDown={(e) => handleEdgeDragStart('front', e)}
+            onPointerMove={handleEdgeDrag}
+            onPointerUp={handleEdgeDragEnd}
+            onPointerLeave={handleEdgeDragEnd}
+          >
+            <boxGeometry args={[width, 0.3, 0.3]} />
+            <meshStandardMaterial color="#3b82f6" transparent opacity={0.6} />
+          </mesh>
+
+          {/* Back edge handle (-Z) */}
+          <mesh
+            position={[0, 0.5, -depth / 2]}
+            onPointerDown={(e) => handleEdgeDragStart('back', e)}
+            onPointerMove={handleEdgeDrag}
+            onPointerUp={handleEdgeDragEnd}
+            onPointerLeave={handleEdgeDragEnd}
+          >
+            <boxGeometry args={[width, 0.3, 0.3]} />
+            <meshStandardMaterial color="#3b82f6" transparent opacity={0.6} />
+          </mesh>
+
+          {/* Right edge handle (+X) */}
+          <mesh
+            position={[width / 2, 0.5, 0]}
+            onPointerDown={(e) => handleEdgeDragStart('right', e)}
+            onPointerMove={handleEdgeDrag}
+            onPointerUp={handleEdgeDragEnd}
+            onPointerLeave={handleEdgeDragEnd}
+          >
+            <boxGeometry args={[0.3, 0.3, depth]} />
+            <meshStandardMaterial color="#3b82f6" transparent opacity={0.6} />
+          </mesh>
+
+          {/* Left edge handle (-X) */}
+          <mesh
+            position={[-width / 2, 0.5, 0]}
+            onPointerDown={(e) => handleEdgeDragStart('left', e)}
+            onPointerMove={handleEdgeDrag}
+            onPointerUp={handleEdgeDragEnd}
+            onPointerLeave={handleEdgeDragEnd}
+          >
+            <boxGeometry args={[0.3, 0.3, depth]} />
+            <meshStandardMaterial color="#3b82f6" transparent opacity={0.6} />
+          </mesh>
+        </>
+      )}
+
+      {/* Show dimension labels while dragging */}
+      {dragState?.isDragging && tempDimensions && (
+        <DimensionLabel width={tempDimensions.width} depth={tempDimensions.depth} />
+      )}
     </group>
   );
 }
 
 // Furniture mesh component
-function FurnitureMesh({ furniture }: { furniture: any }) {
+function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContextMenu?: (e: any, furniture: any) => void }) {
   const width = furniture.width || 1;
   const height = furniture.height || 1;
   const depth = furniture.depth || 1;
@@ -480,11 +644,28 @@ function FurnitureMesh({ furniture }: { furniture: any }) {
   console.log('[DEBUG FurnitureMesh] Dimensions:', { width, height, depth });
   console.log('[DEBUG FurnitureMesh] Position:', [furniture.position_x, furniture.position_y, furniture.position_z]);
 
+  const handlePointerDown = (e: any) => {
+    // Check if it's a right-click (button 2)
+    if (e.button === 2) {
+      e.stopPropagation();
+      // Dispatch custom event for furniture context menu
+      window.dispatchEvent(new CustomEvent('canvasContextMenu', {
+        detail: {
+          clientX: e.nativeEvent.clientX,
+          clientY: e.nativeEvent.clientY,
+          type: 'furniture',
+          furniture: furniture
+        }
+      }));
+    }
+  };
+
   return (
     <group
       position={[furniture.position_x, furniture.position_y, furniture.position_z]}
       rotation={[furniture.rotation_x || 0, furniture.rotation_y || 0, furniture.rotation_z || 0]}
       scale={[furniture.scale_x || 1, furniture.scale_y || 1, furniture.scale_z || 1]}
+      onPointerDown={handlePointerDown}
     >
       <Box args={[width, height, depth]} position={[0, height / 2, 0]}>
         <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={0.5} />
@@ -513,8 +694,43 @@ export default function Viewport3D() {
   const currentFloorId = useEditorStore((state) => state.currentFloorId);
   const rooms = useEditorStore((state) => state.rooms);
   const addFurniturePlacement = useEditorStore((state) => state.addFurniturePlacement);
+  const removeFurniturePlacement = useEditorStore((state) => state.removeFurniturePlacement);
+  const setSelectedRoomId = useEditorStore((state) => state.setSelectedRoomId);
   const lightingMode = useEditorStore((state) => state.lightingMode);
   const setLightingMode = useEditorStore((state) => state.setLightingMode);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    type: 'empty' | 'furniture';
+    furniture?: any;
+  }>({
+    visible: false,
+    x: 0,
+    y: 0,
+    type: 'empty',
+  });
+
+  // Listen for context menu events from the 3D scene
+  useEffect(() => {
+    const handleCanvasContextMenuEvent = (event: any) => {
+      const { clientX, clientY, type, furniture } = event.detail;
+      console.log('[DEBUG Viewport3D] Context menu event received:', { clientX, clientY, type, furniture });
+      setContextMenu({
+        visible: true,
+        x: clientX,
+        y: clientY,
+        type: type || 'empty',
+        furniture: furniture,
+      });
+      console.log('[DEBUG Viewport3D] Context menu state set to visible');
+    };
+
+    window.addEventListener('canvasContextMenu', handleCanvasContextMenuEvent);
+    return () => window.removeEventListener('canvasContextMenu', handleCanvasContextMenuEvent);
+  }, []);
 
   // Listen for furniture drop events from the 3D scene
   useEffect(() => {
@@ -576,6 +792,130 @@ export default function Viewport3D() {
     return () => window.removeEventListener('dropFurniture', handleDropFurniture);
   }, [rooms, addFurniturePlacement]);
 
+  // Context menu handlers
+  const handleDeleteFurniture = async (furniture: any) => {
+    try {
+      await furnitureApi.delete(furniture.id);
+      removeFurniturePlacement(furniture.id);
+      toast.success('Furniture deleted', {
+        description: `${furniture.asset_name || 'Furniture'} removed`,
+      });
+    } catch (error) {
+      console.error('Error deleting furniture:', error);
+      toast.error('Failed to delete furniture', {
+        description: 'Please try again',
+      });
+    }
+  };
+
+  const handleDuplicateFurniture = async (furniture: any) => {
+    try {
+      // Create duplicate with slight offset
+      const data = await furnitureApi.create(furniture.room_id, {
+        asset_id: furniture.asset_id,
+        position_x: furniture.position_x + 1, // Offset by 1 meter
+        position_y: furniture.position_y,
+        position_z: furniture.position_z + 1,
+        rotation_x: furniture.rotation_x,
+        rotation_y: furniture.rotation_y,
+        rotation_z: furniture.rotation_z,
+        scale_x: furniture.scale_x,
+        scale_y: furniture.scale_y,
+        scale_z: furniture.scale_z,
+      });
+
+      addFurniturePlacement(data.furniture);
+      toast.success('Furniture duplicated', {
+        description: `${furniture.asset_name || 'Furniture'} copied`,
+      });
+    } catch (error) {
+      console.error('Error duplicating furniture:', error);
+      toast.error('Failed to duplicate furniture', {
+        description: 'Please try again',
+      });
+    }
+  };
+
+  const handleShowProperties = (furniture: any) => {
+    // Find the room that contains this furniture
+    const room = rooms.find((r) => r.id === furniture.room_id);
+    if (room) {
+      setSelectedRoomId(room.id);
+    }
+  };
+
+  // Get context menu items based on type
+  const getContextMenuItems = (): ContextMenuItem[] => {
+    console.log('[DEBUG getContextMenuItems] Type:', contextMenu.type, 'Furniture:', contextMenu.furniture);
+    if (contextMenu.type === 'furniture' && contextMenu.furniture) {
+      const furniture = contextMenu.furniture;
+      return [
+        {
+          label: 'Properties',
+          icon: <Eye className="w-4 h-4" />,
+          onClick: () => handleShowProperties(furniture),
+        },
+        {
+          label: 'Duplicate',
+          icon: <Copy className="w-4 h-4" />,
+          onClick: () => handleDuplicateFurniture(furniture),
+        },
+        {
+          label: 'Delete',
+          icon: <Trash2 className="w-4 h-4" />,
+          onClick: () => handleDeleteFurniture(furniture),
+          divider: true,
+        },
+      ];
+    } else {
+      // Empty space menu
+      const items = [
+        {
+          label: 'Add Furniture',
+          icon: <Armchair className="w-4 h-4" />,
+          onClick: () => {
+            // Open asset library (left sidebar) - it's already visible but this confirms intent
+            toast.info('Drag furniture from the left panel to place it');
+          },
+        },
+        {
+          label: 'View Settings',
+          icon: <Settings className="w-4 h-4" />,
+          onClick: () => {
+            // Trigger settings modal - for now just show toast
+            toast.info('Settings panel coming soon');
+          },
+        },
+      ];
+      console.log('[DEBUG getContextMenuItems] Returning empty space items:', items.length);
+      return items;
+    }
+  };
+
+  // Handle right-click on Canvas wrapper
+  const handleCanvasContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      type: 'empty',
+    });
+  };
+
+  // Pass this to Scene to handle furniture context menu
+  const handleFurnitureContextMenu = (e: any, furniture: any) => {
+    // Get mouse position from the DOM event
+    const domEvent = e.nativeEvent as MouseEvent;
+    setContextMenu({
+      visible: true,
+      x: domEvent.clientX,
+      y: domEvent.clientY,
+      type: 'furniture',
+      furniture,
+    });
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     if (draggingAsset) {
       e.preventDefault();
@@ -593,6 +933,7 @@ export default function Viewport3D() {
       className="w-full h-full bg-gray-950"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onContextMenu={handleCanvasContextMenu}
     >
       <Canvas
         camera={{
@@ -601,7 +942,7 @@ export default function Viewport3D() {
         }}
         style={{ width: '100%', height: '100%' }}
       >
-        <Scene />
+        <Scene onFurnitureContextMenu={handleFurnitureContextMenu} />
       </Canvas>
 
       {/* Dimension overlay (HTML-based text that floats over 3D) */}
@@ -619,6 +960,21 @@ export default function Viewport3D() {
           <Sun className="w-5 h-5" />
         )}
       </button>
+
+      {/* Context menu */}
+      {contextMenu.visible && (() => {
+        console.log('[DEBUG Render] Context menu rendering with:', contextMenu);
+        const items = getContextMenuItems();
+        console.log('[DEBUG Render] Items:', items);
+        return (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            items={items}
+            onClose={() => setContextMenu({ ...contextMenu, visible: false })}
+          />
+        );
+      })()}
     </div>
   );
 }
