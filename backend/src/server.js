@@ -22,8 +22,34 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/assets', express.static(join(__dirname, '../../assets')));
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Home Designer API is running' });
+app.get('/api/health', async (req, res) => {
+  try {
+    const { getDatabase } = await import('./db/connection.js');
+    const db = await getDatabase();
+
+    // Test database query
+    const result = db.exec('SELECT 1 as test');
+    const dbHealthy = result.length > 0 && result[0].values[0][0] === 1;
+
+    res.json({
+      status: 'ok',
+      message: 'Home Designer API is running',
+      database: {
+        connected: true,
+        healthy: dbHealthy,
+        type: 'SQLite (sql.js)'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Health check failed',
+      database: {
+        connected: false,
+        error: error.message
+      }
+    });
+  }
 });
 
 // API routes
