@@ -51,6 +51,11 @@ interface FurniturePlacement {
   model_path?: string;
 }
 
+interface CameraPosition {
+  position: [number, number, number];
+  target: [number, number, number];
+}
+
 interface EditorState {
   // Current tool
   currentTool: EditorTool;
@@ -65,6 +70,11 @@ interface EditorState {
 
   currentFloorId: number | null;
   setCurrentFloorId: (id: number | null) => void;
+
+  // Camera positions per floor
+  cameraPositions: Record<number, CameraPosition>;
+  setCameraPosition: (floorId: number, position: CameraPosition) => void;
+  getCameraPosition: (floorId: number) => CameraPosition | undefined;
 
   // Rooms
   rooms: Room[];
@@ -102,6 +112,16 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   currentFloorId: null,
   setCurrentFloorId: (id) => set({ currentFloorId: id }),
+
+  cameraPositions: {},
+  setCameraPosition: (floorId, position) =>
+    set((state) => ({
+      cameraPositions: { ...state.cameraPositions, [floorId]: position },
+    })),
+  getCameraPosition: (floorId) => {
+    const state = useEditorStore.getState();
+    return state.cameraPositions[floorId];
+  },
 
   rooms: [],
   setRooms: (rooms) => set({ rooms }),

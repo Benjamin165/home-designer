@@ -1,9 +1,10 @@
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, Box } from '@react-three/drei';
 import { useState, useRef, useEffect } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { furnitureApi } from '../lib/api';
 import * as THREE from 'three';
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
 interface DragState {
   isDrawing: boolean;
@@ -16,6 +17,10 @@ function Scene() {
   const rooms = useEditorStore((state) => state.rooms);
   const furniturePlacements = useEditorStore((state) => state.furniturePlacements);
   const draggingAsset = useEditorStore((state) => state.draggingAsset);
+  const currentFloorId = useEditorStore((state) => state.currentFloorId);
+  const setCameraPosition = useEditorStore((state) => state.setCameraPosition);
+  const cameraPositions = useEditorStore((state) => state.cameraPositions);
+
   const [dragState, setDragState] = useState<DragState>({
     isDrawing: false,
     startPoint: null,
@@ -27,6 +32,8 @@ function Scene() {
   } | null>(null);
 
   const planeRef = useRef<THREE.Mesh>(null);
+  const controlsRef = useRef<OrbitControlsImpl>(null);
+  const { camera } = useThree();
 
   // Handle dragging asset from library
   useEffect(() => {
@@ -68,6 +75,42 @@ function Scene() {
       setFurniturePreview(null);
     }
   }, [draggingAsset]);
+
+  // Restore camera position when floor changes
+  useEffect(() => {
+    if (!currentFloorId || !controlsRef.current) return;
+
+    const savedPosition = cameraPositions[currentFloorId];
+    if (savedPosition) {
+      // Restore camera position and target
+      camera.position.set(...savedPosition.position);
+      controlsRef.current.target.set(...savedPosition.target);
+      controlsRef.current.update();
+    }
+  }, [currentFloorId, cameraPositions, camera]);
+
+  // Save camera position periodically
+  useEffect(() => {
+    if (!currentFloorId || !controlsRef.current) return;
+
+    const saveInterval = setInterval(() => {
+      if (controlsRef.current) {
+        const position: [number, number, number] = [
+          camera.position.x,
+          camera.position.y,
+          camera.position.z,
+        ];
+        const target: [number, number, number] = [
+          controlsRef.current.target.x,
+          controlsRef.current.target.y,
+          controlsRef.current.target.z,
+        ];
+        setCameraPosition(currentFloorId, { position, target });
+      }
+    }, 1000); // Save every second
+
+    return () => clearInterval(saveInterval);
+  }, [currentFloorId, camera, setCameraPosition]);
 
   // Handle mouse events for wall drawing
   const handlePointerDown = (event: any) => {
@@ -257,6 +300,7 @@ function Scene() {
 
       {/* Camera controls */}
       <OrbitControls
+        ref={controlsRef}
         makeDefault
         maxPolarAngle={Math.PI / 2.2}
         minDistance={2}

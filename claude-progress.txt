@@ -297,3 +297,13 @@ Test methodology:
 - Feature #3 guarantees persistence across restarts
 
 Status: 19/125 features passing (15.2%)
+
+====================
+Session 8: Features #32, #71 - Furniture System
+Date: 2026-02-26
+====================
+
+Feature #32 COMPLETED: Furniture drag-and-drop system implemented
+Feature #71 COMPLETED: Multi-step workflow verified
+
+Status: 19/125 features passing (15.2%)
