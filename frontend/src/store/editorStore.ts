@@ -60,6 +60,7 @@ interface CameraPosition {
 export type ActionType =
   | 'furniture_add'
   | 'furniture_remove'
+  | 'furniture_move'
   | 'room_add'
   | 'room_remove';
 
@@ -71,6 +72,10 @@ export interface HistoryAction {
   data: {
     furniture?: FurniturePlacement;
     room?: Room;
+    // For furniture_move: store previous and new positions
+    previousPosition?: { x: number; y: number; z: number };
+    newPosition?: { x: number; y: number; z: number };
+    furnitureId?: number;
   };
 }
 
@@ -235,6 +240,8 @@ export const useEditorStore = create<EditorState>((set) => ({
     const { furnitureApi } = await import('../lib/api');
 
     try {
+      let affectedFurnitureId: number | null = null;
+
       // Reverse the action
       switch (action.type) {
         case 'furniture_add':
@@ -242,6 +249,7 @@ export const useEditorStore = create<EditorState>((set) => ({
           if (action.data.furniture) {
             await furnitureApi.delete(action.data.furniture.id);
             state.removeFurniturePlacement(action.data.furniture.id);
+            affectedFurnitureId = action.data.furniture.id;
           }
           break;
 
@@ -261,6 +269,24 @@ export const useEditorStore = create<EditorState>((set) => ({
               scale_z: action.data.furniture.scale_z,
             });
             state.addFurniturePlacement(data.furniture);
+            affectedFurnitureId = data.furniture.id;
+          }
+          break;
+
+        case 'furniture_move':
+          // Restore previous position
+          if (action.data.furnitureId && action.data.previousPosition) {
+            await furnitureApi.update(action.data.furnitureId, {
+              position_x: action.data.previousPosition.x,
+              position_y: action.data.previousPosition.y,
+              position_z: action.data.previousPosition.z,
+            });
+            state.updateFurniturePlacement(action.data.furnitureId, {
+              position_x: action.data.previousPosition.x,
+              position_y: action.data.previousPosition.y,
+              position_z: action.data.previousPosition.z,
+            });
+            affectedFurnitureId = action.data.furnitureId;
           }
           break;
 
@@ -269,6 +295,12 @@ export const useEditorStore = create<EditorState>((set) => ({
 
       // Move history index back
       set({ historyIndex: state.historyIndex - 1 });
+
+      // Preserve selection for the affected furniture (Feature #83)
+      if (affectedFurnitureId !== null && state.selectedFurnitureId === affectedFurnitureId) {
+        // Keep it selected
+        set({ selectedFurnitureId: affectedFurnitureId });
+      }
     } catch (error) {
       console.error('Error undoing action:', error);
       throw error;
@@ -286,6 +318,8 @@ export const useEditorStore = create<EditorState>((set) => ({
     const { furnitureApi } = await import('../lib/api');
 
     try {
+      let affectedFurnitureId: number | null = null;
+
       // Re-apply the action
       switch (action.type) {
         case 'furniture_add':
@@ -304,6 +338,7 @@ export const useEditorStore = create<EditorState>((set) => ({
               scale_z: action.data.furniture.scale_z,
             });
             state.addFurniturePlacement(data.furniture);
+            affectedFurnitureId = data.furniture.id;
           }
           break;
 
@@ -312,12 +347,36 @@ export const useEditorStore = create<EditorState>((set) => ({
           if (action.data.furniture) {
             await furnitureApi.delete(action.data.furniture.id);
             state.removeFurniturePlacement(action.data.furniture.id);
+            affectedFurnitureId = action.data.furniture.id;
+          }
+          break;
+
+        case 'furniture_move':
+          // Reapply new position
+          if (action.data.furnitureId && action.data.newPosition) {
+            await furnitureApi.update(action.data.furnitureId, {
+              position_x: action.data.newPosition.x,
+              position_y: action.data.newPosition.y,
+              position_z: action.data.newPosition.z,
+            });
+            state.updateFurniturePlacement(action.data.furnitureId, {
+              position_x: action.data.newPosition.x,
+              position_y: action.data.newPosition.y,
+              position_z: action.data.newPosition.z,
+            });
+            affectedFurnitureId = action.data.furnitureId;
           }
           break;
       }
 
       // Move history index forward
       set({ historyIndex: nextIndex });
+
+      // Preserve selection for the affected furniture (Feature #83)
+      if (affectedFurnitureId !== null && state.selectedFurnitureId === affectedFurnitureId) {
+        // Keep it selected
+        set({ selectedFurnitureId: affectedFurnitureId });
+      }
     } catch (error) {
       console.error('Error redoing action:', error);
       throw error;

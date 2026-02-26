@@ -150,7 +150,7 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
 
   const planeRef = useRef<THREE.Mesh>(null);
   const controlsRef = useRef<OrbitControlsImpl>(null);
-  const { camera } = useThree();
+  const { camera, gl } = useThree();
 
   // Handle dragging asset from library
   useEffect(() => {
@@ -476,7 +476,15 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
 
       {/* Preview rectangle while drawing */}
       {previewDims && (
-        <group position={[previewDims.centerX, 0.01, previewDims.centerZ]} raycast={false}>
+        <group
+          position={[previewDims.centerX, 0.01, previewDims.centerZ]}
+          raycast={false}
+          onPointerUp={(e) => {
+            console.log('[DEBUG Preview Group] onPointerUp captured by preview!', e);
+            e.stopPropagation();
+            handlePointerUp(e);
+          }}
+        >
           {/* Floor preview */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} raycast={false}>
             <planeGeometry args={[previewDims.width, previewDims.depth]} />
@@ -883,6 +891,7 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
   const setSelectedFurnitureId = useEditorStore((state) => state.setSelectedFurnitureId);
   const updateFurniturePlacement = useEditorStore((state) => state.updateFurniturePlacement);
   const currentTool = useEditorStore((state) => state.currentTool);
+  const addAction = useEditorStore((state) => state.addAction);
 
   const isSelected = selectedFurnitureId === furniture.id;
   const groupRef = useRef<THREE.Group>(null);
@@ -965,6 +974,25 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
             position_z: newZ,
           });
           console.log('[FurnitureMesh] Position saved to backend:', { x: newX, z: newZ });
+
+          // Add to undo/redo history (Feature #83)
+          addAction({
+            type: 'furniture_move',
+            description: `Moved ${furniture.asset_name || 'furniture'}`,
+            data: {
+              furnitureId: furniture.id,
+              previousPosition: {
+                x: dragStart.x,
+                y: furniture.position_y,
+                z: dragStart.z,
+              },
+              newPosition: {
+                x: newX,
+                y: furniture.position_y,
+                z: newZ,
+              },
+            },
+          });
         } catch (error) {
           console.error('[FurnitureMesh] Failed to save position:', error);
           toast.error('Failed to save furniture position');
