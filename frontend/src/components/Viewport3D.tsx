@@ -963,25 +963,6 @@ export default function Viewport3D() {
 
       {/* Context menu */}
       {contextMenu.visible && (
-        <div
-          style={{
-            position: 'fixed',
-            left: contextMenu.x,
-            top: contextMenu.y,
-            zIndex: 99999,
-            backgroundColor: 'red',
-            color: 'white',
-            padding: '20px',
-            border: '3px solid yellow'
-          }}
-        >
-          TEST MENU - X:{contextMenu.x} Y:{contextMenu.y}
-          <br/>
-          Type: {contextMenu.type}
-          <div onClick={() => setContextMenu({ ...contextMenu, visible: false })}>CLOSE</div>
-        </div>
-      )}
-      {contextMenu.visible && (
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}

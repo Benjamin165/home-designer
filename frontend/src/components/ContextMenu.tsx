@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Copy, Trash2, Settings, Armchair, Eye } from 'lucide-react';
 
 export interface ContextMenuItem {
@@ -26,20 +27,27 @@ function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
     };
 
     const handleContextMenu = (e: MouseEvent) => {
+      // Only prevent default and close if right-clicking outside the menu
       e.preventDefault();
-      onClose();
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('contextmenu', handleContextMenu);
+    // Add small delay to avoid closing immediately on the same event that opened the menu
+    const timerId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('contextmenu', handleContextMenu);
+    }, 100);
 
     return () => {
+      clearTimeout(timerId);
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('contextmenu', handleContextMenu);
     };
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
       ref={menuRef}
       className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-1 min-w-[180px] z-50"
@@ -60,7 +68,8 @@ function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
           </button>
         </div>
       ))}
-    </div>
+    </div>,
+    document.body
   );
 }
 
