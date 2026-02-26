@@ -1,6 +1,40 @@
 .playwright-cli/
 .playwright/
 
+# Test/debug scripts (prevent development artifacts)
+test-*.js
+test-*.mjs
+test-*.sh
+check-*.js
+check-*.mjs
+debug-*.js
+verify-*.js
+setup-test-*.js
+create-test-*.js
+dump-*.js
+simulate-*.js
+run-*.js
+
+# Backend test scripts
+backend/test-*.js
+backend/check-*.js
+backend/verify-*.js
+backend/debug-*.js
+
+# Screenshot artifacts (root-level only)
+/*.png
+/*.jpg
+/*.jpeg
+
+# Session documentation and progress files
+SESSION-*.md
+SESSION-*.txt
+FEATURE-*-*.md
+INITIALIZATION_COMPLETE.md
+PROJECT-COMPLETE-*.md
+claude-progress.txt
+CLAUDE.md
+
 # Dependencies
 node_modules/
 npm-debug.log*
