@@ -21,6 +21,7 @@ function Scene() {
   const currentFloorId = useEditorStore((state) => state.currentFloorId);
   const setCameraPosition = useEditorStore((state) => state.setCameraPosition);
   const cameraPositions = useEditorStore((state) => state.cameraPositions);
+  const gridVisible = useEditorStore((state) => state.gridVisible);
 
   console.log('[DEBUG Scene] Furniture placements:', furniturePlacements);
 
@@ -232,18 +233,20 @@ function Scene() {
       <directionalLight position={[10, 10, 5]} intensity={0.8} />
 
       {/* Grid */}
-      <Grid
-        args={[50, 50]}
-        cellSize={1}
-        cellThickness={0.5}
-        cellColor="#6b7280"
-        sectionSize={5}
-        sectionThickness={1}
-        sectionColor="#9ca3af"
-        fadeDistance={100}
-        fadeStrength={1}
-        position={[0, 0, 0]}
-      />
+      {gridVisible && (
+        <Grid
+          args={[50, 50]}
+          cellSize={1}
+          cellThickness={0.5}
+          cellColor="#6b7280"
+          sectionSize={5}
+          sectionThickness={1}
+          sectionColor="#9ca3af"
+          fadeDistance={100}
+          fadeStrength={1}
+          position={[0, 0, 0]}
+        />
+      )}
 
       {/* Invisible plane for raycasting */}
       <mesh

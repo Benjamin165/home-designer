@@ -25,6 +25,7 @@ import {
   Upload,
   Check,
   Loader2,
+  Grid3x3,
 } from 'lucide-react';
 
 interface Project {
@@ -95,6 +96,8 @@ function Editor() {
     unitSystem,
     setUnitSystem,
     setFurniturePlacements,
+    gridVisible,
+    setGridVisible,
   } = useEditorStore();
 
   useEffect(() => {
@@ -755,6 +758,17 @@ function Editor() {
                 title="First-Person View"
               >
                 <Eye className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setGridVisible(!gridVisible)}
+                className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  gridVisible
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-600'
+                }`}
+                title="Toggle Grid"
+              >
+                <Grid3x3 className="w-5 h-5" />
               </button>
             </div>
 

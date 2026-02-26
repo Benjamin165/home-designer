@@ -98,6 +98,10 @@ interface EditorState {
   // Dragging state for furniture
   draggingAsset: { id: number; name: string } | null;
   setDraggingAsset: (asset: { id: number; name: string } | null) => void;
+
+  // Grid visibility
+  gridVisible: boolean;
+  setGridVisible: (visible: boolean) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -144,4 +148,7 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   draggingAsset: null,
   setDraggingAsset: (asset) => set({ draggingAsset: asset }),
+
+  gridVisible: true,
+  setGridVisible: (visible) => set({ gridVisible: visible }),
 }));
