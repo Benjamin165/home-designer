@@ -14,6 +14,110 @@ interface DragState {
   isDrawing: boolean;
   startPoint: { x: number; z: number } | null;
   currentPoint: { x: number; z: number } | null;
+  snappedEdge: { roomId: number; edge: 'front' | 'back' | 'left' | 'right' } | null;
+}
+
+interface RoomEdge {
+  roomId: number;
+  edge: 'front' | 'back' | 'left' | 'right';
+  x: number;
+  z: number;
+  isHorizontal: boolean; // true for edges parallel to X axis (front/back)
+  length: number;
+}
+
+// Helper function to get all room edges for snapping
+function getRoomEdges(rooms: any[]): RoomEdge[] {
+  const edges: RoomEdge[] = [];
+
+  rooms.forEach((room) => {
+    const width = room.dimensions_json.width || 4;
+    const depth = room.dimensions_json.depth || 4;
+    const posX = room.position_x || 0;
+    const posZ = room.position_z || 0;
+
+    // Front edge (+Z direction)
+    edges.push({
+      roomId: room.id,
+      edge: 'front',
+      x: posX,
+      z: posZ + depth / 2,
+      isHorizontal: true,
+      length: width,
+    });
+
+    // Back edge (-Z direction)
+    edges.push({
+      roomId: room.id,
+      edge: 'back',
+      x: posX,
+      z: posZ - depth / 2,
+      isHorizontal: true,
+      length: width,
+    });
+
+    // Right edge (+X direction)
+    edges.push({
+      roomId: room.id,
+      edge: 'right',
+      x: posX + width / 2,
+      z: posZ,
+      isHorizontal: false,
+      length: depth,
+    });
+
+    // Left edge (-X direction)
+    edges.push({
+      roomId: room.id,
+      edge: 'left',
+      x: posX - width / 2,
+      z: posZ,
+      isHorizontal: false,
+      length: depth,
+    });
+  });
+
+  return edges;
+}
+
+// Helper function to find the nearest edge to snap to
+function findSnapEdge(
+  point: { x: number; z: number },
+  rooms: any[],
+  snapDistance: number = 0.5
+): RoomEdge | null {
+  const edges = getRoomEdges(rooms);
+  let nearestEdge: RoomEdge | null = null;
+  let minDistance = snapDistance;
+
+  edges.forEach((edge) => {
+    let distance: number;
+
+    if (edge.isHorizontal) {
+      // For horizontal edges (front/back), check distance in Z and proximity in X
+      distance = Math.abs(point.z - edge.z);
+      // Check if point is within the edge's X range (with some tolerance)
+      const xDiff = Math.abs(point.x - edge.x);
+      if (xDiff > edge.length / 2 + snapDistance) {
+        return; // Point is too far along the edge
+      }
+    } else {
+      // For vertical edges (left/right), check distance in X and proximity in Z
+      distance = Math.abs(point.x - edge.x);
+      // Check if point is within the edge's Z range (with some tolerance)
+      const zDiff = Math.abs(point.z - edge.z);
+      if (zDiff > edge.length / 2 + snapDistance) {
+        return; // Point is too far along the edge
+      }
+    }
+
+    if (distance < minDistance) {
+      minDistance = distance;
+      nearestEdge = edge;
+    }
+  });
+
+  return nearestEdge;
 }
 
 function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, furniture: any) => void }) {
@@ -33,6 +137,7 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
     isDrawing: false,
     startPoint: null,
     currentPoint: null,
+    snappedEdge: null,
   });
   const [furniturePreview, setFurniturePreview] = useState<{
     asset: any;
@@ -172,22 +277,60 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
       return;
     }
 
-    if (currentTool !== 'draw-wall') return;
+    if (currentTool !== 'draw-wall') {
+      console.log('[DEBUG] Tool is not draw-wall, currentTool:', currentTool);
+      return;
+    }
 
+    console.log('[DEBUG] Starting draw operation, currentTool:', currentTool);
     const point = event.point;
+    console.log('[DEBUG] Point:', point);
+
+    // Check if starting near an existing room edge
+    const snapEdge = findSnapEdge(point, rooms);
+    let snappedStartPoint = { x: point.x, z: point.z };
+
+    if (snapEdge) {
+      // Snap the start point to the edge
+      if (snapEdge.isHorizontal) {
+        snappedStartPoint.z = snapEdge.z;
+      } else {
+        snappedStartPoint.x = snapEdge.x;
+      }
+
+      console.log('[DEBUG] Snapping to edge:', snapEdge.edge, 'of room', snapEdge.roomId);
+    }
+
+    console.log('[DEBUG] Setting dragState with startPoint:', snappedStartPoint);
     setDragState({
       isDrawing: true,
-      startPoint: { x: point.x, z: point.z },
-      currentPoint: { x: point.x, z: point.z },
+      startPoint: snappedStartPoint,
+      currentPoint: snappedStartPoint,
+      snappedEdge: snapEdge,
     });
+    console.log('[DEBUG] dragState set successfully');
   };
 
   const handlePointerMove = (event: any) => {
     if (currentTool === 'draw-wall' && dragState.isDrawing) {
       const point = event.point;
+
+      // Check if current point is near an edge (for opposite side snapping)
+      const snapEdge = findSnapEdge(point, rooms);
+      let snappedCurrentPoint = { x: point.x, z: point.z };
+
+      if (snapEdge) {
+        // Snap the current point to the edge
+        if (snapEdge.isHorizontal) {
+          snappedCurrentPoint.z = snapEdge.z;
+        } else {
+          snappedCurrentPoint.x = snapEdge.x;
+        }
+      }
+
       setDragState((prev) => ({
         ...prev,
-        currentPoint: { x: point.x, z: point.z },
+        currentPoint: snappedCurrentPoint,
       }));
     }
 
@@ -233,6 +376,7 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
         isDrawing: false,
         startPoint: null,
         currentPoint: null,
+        snappedEdge: null,
       });
     }
 
@@ -339,6 +483,48 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
           />
         </group>
       )}
+
+      {/* Snap indicator - highlight the edge being snapped to */}
+      {dragState.snappedEdge && dragState.isDrawing && (() => {
+        const snapped = dragState.snappedEdge;
+        const room = rooms.find(r => r.id === snapped.roomId);
+        if (!room) return null;
+
+        const width = room.dimensions_json.width || 4;
+        const depth = room.dimensions_json.depth || 4;
+        const posX = room.position_x || 0;
+        const posZ = room.position_z || 0;
+
+        // Calculate edge position and dimensions for the highlight
+        let edgePos: [number, number, number] = [0, 0.05, 0];
+        let edgeSize: [number, number] = [0, 0];
+
+        switch (snapped.edge) {
+          case 'front':
+            edgePos = [posX, 0.05, posZ + depth / 2];
+            edgeSize = [width, 0.1];
+            break;
+          case 'back':
+            edgePos = [posX, 0.05, posZ - depth / 2];
+            edgeSize = [width, 0.1];
+            break;
+          case 'right':
+            edgePos = [posX + width / 2, 0.05, posZ];
+            edgeSize = [0.1, depth];
+            break;
+          case 'left':
+            edgePos = [posX - width / 2, 0.05, posZ];
+            edgeSize = [0.1, depth];
+            break;
+        }
+
+        return (
+          <mesh position={edgePos} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={edgeSize} />
+            <meshBasicMaterial color="#10b981" opacity={0.8} transparent />
+          </mesh>
+        );
+      })()}
 
       {/* Render actual rooms */}
       {rooms.map((room) => (
@@ -698,6 +884,7 @@ export default function Viewport3D() {
   const setSelectedRoomId = useEditorStore((state) => state.setSelectedRoomId);
   const lightingMode = useEditorStore((state) => state.lightingMode);
   const setLightingMode = useEditorStore((state) => state.setLightingMode);
+  const addAction = useEditorStore((state) => state.addAction);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -776,6 +963,13 @@ export default function Viewport3D() {
         addFurniturePlacement(data.furniture);
         console.log('Furniture placed:', data.furniture);
 
+        // Record action in history
+        addAction({
+          type: 'furniture_add',
+          description: `Placed ${asset.name}`,
+          data: { furniture: data.furniture },
+        });
+
         // Show success toast
         toast.success('Furniture placed', {
           description: `${asset.name} added to ${targetRoom.name || 'room'}`,
@@ -795,6 +989,13 @@ export default function Viewport3D() {
   // Context menu handlers
   const handleDeleteFurniture = async (furniture: any) => {
     try {
+      // Record action in history BEFORE deleting
+      addAction({
+        type: 'furniture_remove',
+        description: `Deleted ${furniture.asset_name || 'furniture'}`,
+        data: { furniture },
+      });
+
       await furnitureApi.delete(furniture.id);
       removeFurniturePlacement(furniture.id);
       toast.success('Furniture deleted', {
@@ -825,6 +1026,14 @@ export default function Viewport3D() {
       });
 
       addFurniturePlacement(data.furniture);
+
+      // Record action in history
+      addAction({
+        type: 'furniture_add',
+        description: `Duplicated ${furniture.asset_name || 'furniture'}`,
+        data: { furniture: data.furniture },
+      });
+
       toast.success('Furniture duplicated', {
         description: `${furniture.asset_name || 'Furniture'} copied`,
       });

@@ -56,6 +56,24 @@ interface CameraPosition {
   target: [number, number, number];
 }
 
+// Action types for undo/redo
+export type ActionType =
+  | 'furniture_add'
+  | 'furniture_remove'
+  | 'room_add'
+  | 'room_remove';
+
+export interface HistoryAction {
+  id: string;
+  type: ActionType;
+  timestamp: Date;
+  description: string;
+  data: {
+    furniture?: FurniturePlacement;
+    room?: Room;
+  };
+}
+
 interface EditorState {
   // Current tool
   currentTool: EditorTool;
@@ -106,6 +124,16 @@ interface EditorState {
   // Lighting mode
   lightingMode: 'day' | 'night';
   setLightingMode: (mode: 'day' | 'night') => void;
+
+  // Undo/Redo
+  history: HistoryAction[];
+  historyIndex: number;
+  addAction: (action: Omit<HistoryAction, 'id' | 'timestamp'>) => void;
+  undo: () => Promise<void>;
+  redo: () => Promise<void>;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
+  clearHistory: () => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -158,4 +186,141 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   lightingMode: 'day',
   setLightingMode: (mode) => set({ lightingMode: mode }),
+
+  // Undo/Redo implementation
+  history: [],
+  historyIndex: -1,
+
+  addAction: (action) =>
+    set((state) => {
+      // Create new action with ID and timestamp
+      const newAction: HistoryAction = {
+        ...action,
+        id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+      };
+
+      // When adding a new action, discard any "future" actions (redo stack)
+      const newHistory = state.history.slice(0, state.historyIndex + 1);
+      newHistory.push(newAction);
+
+      // Limit history to last 100 actions to prevent memory issues
+      const limitedHistory = newHistory.slice(-100);
+
+      return {
+        history: limitedHistory,
+        historyIndex: limitedHistory.length - 1,
+      };
+    }),
+
+  undo: async () => {
+    const state = useEditorStore.getState();
+    if (!state.canUndo()) return;
+
+    const action = state.history[state.historyIndex];
+
+    // Import furnitureApi here to avoid circular dependencies
+    const { furnitureApi } = await import('../lib/api');
+
+    try {
+      // Reverse the action
+      switch (action.type) {
+        case 'furniture_add':
+          // Remove the furniture that was added
+          if (action.data.furniture) {
+            await furnitureApi.delete(action.data.furniture.id);
+            state.removeFurniturePlacement(action.data.furniture.id);
+          }
+          break;
+
+        case 'furniture_remove':
+          // Re-add the furniture that was removed
+          if (action.data.furniture) {
+            const data = await furnitureApi.create(action.data.furniture.room_id, {
+              asset_id: action.data.furniture.asset_id,
+              position_x: action.data.furniture.position_x,
+              position_y: action.data.furniture.position_y,
+              position_z: action.data.furniture.position_z,
+              rotation_x: action.data.furniture.rotation_x,
+              rotation_y: action.data.furniture.rotation_y,
+              rotation_z: action.data.furniture.rotation_z,
+              scale_x: action.data.furniture.scale_x,
+              scale_y: action.data.furniture.scale_y,
+              scale_z: action.data.furniture.scale_z,
+            });
+            state.addFurniturePlacement(data.furniture);
+          }
+          break;
+
+        // Add more action types as needed
+      }
+
+      // Move history index back
+      set({ historyIndex: state.historyIndex - 1 });
+    } catch (error) {
+      console.error('Error undoing action:', error);
+      throw error;
+    }
+  },
+
+  redo: async () => {
+    const state = useEditorStore.getState();
+    if (!state.canRedo()) return;
+
+    // Move index forward first to get the action to redo
+    const nextIndex = state.historyIndex + 1;
+    const action = state.history[nextIndex];
+
+    const { furnitureApi } = await import('../lib/api');
+
+    try {
+      // Re-apply the action
+      switch (action.type) {
+        case 'furniture_add':
+          // Re-add the furniture
+          if (action.data.furniture) {
+            const data = await furnitureApi.create(action.data.furniture.room_id, {
+              asset_id: action.data.furniture.asset_id,
+              position_x: action.data.furniture.position_x,
+              position_y: action.data.furniture.position_y,
+              position_z: action.data.furniture.position_z,
+              rotation_x: action.data.furniture.rotation_x,
+              rotation_y: action.data.furniture.rotation_y,
+              rotation_z: action.data.furniture.rotation_z,
+              scale_x: action.data.furniture.scale_x,
+              scale_y: action.data.furniture.scale_y,
+              scale_z: action.data.furniture.scale_z,
+            });
+            state.addFurniturePlacement(data.furniture);
+          }
+          break;
+
+        case 'furniture_remove':
+          // Re-remove the furniture
+          if (action.data.furniture) {
+            await furnitureApi.delete(action.data.furniture.id);
+            state.removeFurniturePlacement(action.data.furniture.id);
+          }
+          break;
+      }
+
+      // Move history index forward
+      set({ historyIndex: nextIndex });
+    } catch (error) {
+      console.error('Error redoing action:', error);
+      throw error;
+    }
+  },
+
+  canUndo: () => {
+    const state = useEditorStore.getState();
+    return state.historyIndex >= 0;
+  },
+
+  canRedo: () => {
+    const state = useEditorStore.getState();
+    return state.historyIndex < state.history.length - 1;
+  },
+
+  clearHistory: () => set({ history: [], historyIndex: -1 }),
 }));

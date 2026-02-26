@@ -7,6 +7,7 @@ import AssetLibrary from './AssetLibrary';
 import FloorSwitcher from './FloorSwitcher';
 import PropertiesPanel from './PropertiesPanel';
 import SettingsModal from './SettingsModal';
+import EditHistory from './EditHistory';
 import { getUnitLabel } from '../lib/units';
 import {
   MousePointer2,
@@ -85,6 +86,9 @@ function Editor() {
   // Unsaved changes warning
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
 
+  // Edit history panel visibility
+  const [showEditHistory, setShowEditHistory] = useState(true);
+
   // Zustand store
   const {
     setProjectId,
@@ -102,6 +106,10 @@ function Editor() {
     setFurniturePlacements,
     gridVisible,
     setGridVisible,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   } = useEditorStore();
 
   useEffect(() => {
@@ -138,6 +146,39 @@ function Editor() {
     window.addEventListener('createRoom', handleCreateRoom);
     return () => window.removeEventListener('createRoom', handleCreateRoom);
   }, [currentFloorId]);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      // Check if Ctrl (or Cmd on Mac) is pressed
+      const isCtrl = e.ctrlKey || e.metaKey;
+
+      if (isCtrl && e.key === 'z' && !e.shiftKey) {
+        // Ctrl+Z: Undo
+        e.preventDefault();
+        if (canUndo()) {
+          try {
+            await undo();
+          } catch (error) {
+            console.error('Undo failed:', error);
+          }
+        }
+      } else if (isCtrl && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        // Ctrl+Y or Ctrl+Shift+Z: Redo
+        e.preventDefault();
+        if (canRedo()) {
+          try {
+            await redo();
+          } catch (error) {
+            console.error('Redo failed:', error);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo, canUndo, canRedo]);
 
   // Auto-save when data changes
   useEffect(() => {
@@ -818,16 +859,42 @@ function Editor() {
 
             <div className="flex items-center bg-gray-700 rounded-lg p-1 gap-1">
               <button
-                onClick={() => {/* TODO: Implement undo */}}
-                className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-                title="Undo"
+                onClick={async () => {
+                  if (canUndo()) {
+                    try {
+                      await undo();
+                    } catch (error) {
+                      console.error('Undo failed:', error);
+                    }
+                  }
+                }}
+                disabled={!canUndo()}
+                className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  canUndo()
+                    ? 'text-gray-300 hover:bg-gray-600 cursor-pointer'
+                    : 'text-gray-500 cursor-not-allowed'
+                }`}
+                title="Undo (Ctrl+Z)"
               >
                 <Undo2 className="w-5 h-5" />
               </button>
               <button
-                onClick={() => {/* TODO: Implement redo */}}
-                className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-                title="Redo"
+                onClick={async () => {
+                  if (canRedo()) {
+                    try {
+                      await redo();
+                    } catch (error) {
+                      console.error('Redo failed:', error);
+                    }
+                  }
+                }}
+                disabled={!canRedo()}
+                className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  canRedo()
+                    ? 'text-gray-300 hover:bg-gray-600 cursor-pointer'
+                    : 'text-gray-500 cursor-not-allowed'
+                }`}
+                title="Redo (Ctrl+Y)"
               >
                 <Redo2 className="w-5 h-5" />
               </button>
@@ -864,19 +931,20 @@ function Editor() {
       </header>
 
       {/* Editor Content with Asset Library and 3D Viewport */}
-      <main className="flex-1 relative overflow-hidden flex">
-        {/* Left Sidebar - Asset Library */}
-        <AssetLibrary />
+      <main className="flex-1 relative overflow-hidden flex flex-col">
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Sidebar - Asset Library */}
+          <AssetLibrary />
 
-        {/* 3D Viewport */}
-        <div className="flex-1 relative">
-          <Viewport3D />
+          {/* 3D Viewport */}
+          <div className="flex-1 relative">
+            <Viewport3D />
 
-          {/* Floor Switcher */}
-          {project && <FloorSwitcher projectId={project.id} />}
+            {/* Floor Switcher */}
+            {project && <FloorSwitcher projectId={project.id} />}
 
-          {/* Properties Panel */}
-          <PropertiesPanel projectName={project?.name || 'Untitled Project'} />
+            {/* Properties Panel */}
+            <PropertiesPanel projectName={project?.name || 'Untitled Project'} />
 
           {/* Info panel */}
           <div className="absolute bottom-4 left-4 bg-gray-800/90 text-white px-4 py-2 rounded-lg text-sm">
@@ -915,7 +983,15 @@ function Editor() {
               </div>
             </div>
           )}
+          </div>
         </div>
+
+        {/* Bottom Panel - Edit History */}
+        {showEditHistory && (
+          <div className="h-48 flex-shrink-0">
+            <EditHistory />
+          </div>
+        )}
       </main>
 
       {/* Edit Project Modal */}
