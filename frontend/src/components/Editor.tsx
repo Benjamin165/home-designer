@@ -616,7 +616,7 @@ function Editor() {
           <div className="flex items-center gap-4">
             <button
               onClick={handleBackToProjects}
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-gray-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
               title="Back to Projects"
             >
               <ArrowLeft className="w-6 h-6" />
@@ -630,7 +630,7 @@ function Editor() {
               </div>
               <button
                 onClick={handleEditClick}
-                className="text-gray-400 hover:text-white transition-colors p-1"
+                className="text-gray-400 hover:text-white transition-colors p-1 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
                 title="Edit Project Details"
               >
                 <Edit2 className="w-4 h-4" />
@@ -643,7 +643,7 @@ function Editor() {
             <div className="flex items-center bg-gray-700 rounded-lg p-1 gap-1">
               <button
                 onClick={() => handleToolSelect('select')}
-                className={`p-2 rounded transition-colors ${
+                className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   currentTool === 'select'
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-300 hover:bg-gray-600'
@@ -654,7 +654,7 @@ function Editor() {
               </button>
               <button
                 onClick={() => handleToolSelect('draw-wall')}
-                className={`p-2 rounded transition-colors ${
+                className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   currentTool === 'draw-wall'
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-300 hover:bg-gray-600'
@@ -665,21 +665,21 @@ function Editor() {
               </button>
               <button
                 onClick={handleOpenDimensionsModal}
-                className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors"
+                className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                 title="Create Room by Dimensions"
               >
                 <Plus className="w-5 h-5" />
               </button>
               <button
                 onClick={handleFloorPlanUpload}
-                className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors"
+                className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                 title="Upload Floor Plan"
               >
                 <Upload className="w-5 h-5" />
               </button>
               <button
                 onClick={() => handleToolSelect('place-furniture')}
-                className={`p-2 rounded transition-colors ${
+                className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   currentTool === 'place-furniture'
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-300 hover:bg-gray-600'
@@ -690,7 +690,7 @@ function Editor() {
               </button>
               <button
                 onClick={() => handleToolSelect('measure')}
-                className={`p-2 rounded transition-colors ${
+                className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   currentTool === 'measure'
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-300 hover:bg-gray-600'
@@ -701,7 +701,7 @@ function Editor() {
               </button>
               <button
                 onClick={() => handleToolSelect('pan')}
-                className={`p-2 rounded transition-colors ${
+                className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   currentTool === 'pan'
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-300 hover:bg-gray-600'
@@ -712,7 +712,7 @@ function Editor() {
               </button>
               <button
                 onClick={() => handleToolSelect('first-person')}
-                className={`p-2 rounded transition-colors ${
+                className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   currentTool === 'first-person'
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-300 hover:bg-gray-600'
@@ -726,21 +726,21 @@ function Editor() {
             <div className="flex items-center bg-gray-700 rounded-lg p-1 gap-1">
               <button
                 onClick={() => {/* TODO: Implement undo */}}
-                className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors"
+                className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                 title="Undo"
               >
                 <Undo2 className="w-5 h-5" />
               </button>
               <button
                 onClick={() => {/* TODO: Implement redo */}}
-                className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors"
+                className="p-2 rounded text-gray-300 hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                 title="Redo"
               >
                 <Redo2 className="w-5 h-5" />
               </button>
             </div>
 
-            <button className="px-3 py-2 flex items-center gap-2 text-sm bg-gray-700 text-gray-200 rounded hover:bg-gray-600 transition-colors">
+            <button className="px-3 py-2 flex items-center gap-2 text-sm bg-gray-700 text-gray-200 rounded hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
               {saveState === 'saving' && <Loader2 className="w-4 h-4 animate-spin" />}
               {saveState === 'saved' && <Check className="w-4 h-4" />}
               {saveState === 'idle' && <Save className="w-4 h-4" />}
@@ -752,7 +752,7 @@ function Editor() {
             <button
               onClick={handleExport}
               disabled={isExporting}
-              className="px-3 py-2 flex items-center gap-2 text-sm bg-gray-700 text-gray-200 rounded hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-2 flex items-center gap-2 text-sm bg-gray-700 text-gray-200 rounded hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               title="Export Project as ZIP"
             >
               <Download className="w-4 h-4" />
