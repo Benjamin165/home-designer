@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { projectsApi, ApiError } from '../lib/api';
 
 interface Project {
@@ -85,9 +86,14 @@ function ProjectHub() {
       setCreateLoading(true);
       setCreateError(null);
 
-      await projectsApi.create({
+      const createdProject = await projectsApi.create({
         name: newProjectName.trim(),
         description: newProjectDescription.trim() || undefined,
+      });
+
+      // Show success toast
+      toast.success('Project created successfully', {
+        description: `"${newProjectName.trim()}" is ready to edit`,
       });
 
       // Reset form
@@ -183,6 +189,11 @@ function ProjectHub() {
         const data = await projectsApi.import(file);
 
         console.log('✓ Project imported:', data.project.name);
+
+        // Show success toast
+        toast.success('Project imported successfully', {
+          description: `"${data.project.name}" has been added to your projects`,
+        });
 
         // Reload projects to show the imported one
         await loadProjects();

@@ -145,6 +145,7 @@ export default function AssetLibrary() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-gray-700 text-white pl-10 pr-8 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
+            aria-label="Search assets"
           />
           {searchQuery && (
             <button

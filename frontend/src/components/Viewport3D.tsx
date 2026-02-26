@@ -1,6 +1,7 @@
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, Box } from '@react-three/drei';
 import { useState, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import { useEditorStore } from '../store/editorStore';
 import { furnitureApi } from '../lib/api';
 import * as THREE from 'three';
@@ -515,8 +516,16 @@ export default function Viewport3D() {
         // Add to store
         addFurniturePlacement(data.furniture);
         console.log('Furniture placed:', data.furniture);
+
+        // Show success toast
+        toast.success('Furniture placed', {
+          description: `${asset.name} added to ${targetRoom.name || 'room'}`,
+        });
       } catch (error) {
         console.error('Error placing furniture:', error);
+        toast.error('Failed to place furniture', {
+          description: 'Please try again',
+        });
       }
     };
 

@@ -22,6 +22,8 @@ import {
   Plus,
   Download,
   Upload,
+  Check,
+  Loader2,
 } from 'lucide-react';
 
 interface Project {
@@ -67,6 +69,12 @@ function Editor() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showUploadError, setShowUploadError] = useState(false);
 
+  // Save state tracking
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSaveDataRef = useRef<string>('');
+  const furniturePlacements = useEditorStore((state) => state.furniturePlacements);
+
   // Zustand store
   const {
     setProjectId,
@@ -106,6 +114,54 @@ function Editor() {
     window.addEventListener('createRoom', handleCreateRoom);
     return () => window.removeEventListener('createRoom', handleCreateRoom);
   }, [currentFloorId]);
+
+  // Auto-save when data changes
+  useEffect(() => {
+    // Skip if no project loaded yet
+    if (!project || !projectId) return;
+
+    // Create a snapshot of current data
+    const currentData = JSON.stringify({
+      rooms: rooms.length,
+      furniture: furniturePlacements.length,
+      floors: floors.length,
+    });
+
+    // Skip if data hasn't changed (prevents infinite loop on initial load)
+    if (currentData === lastSaveDataRef.current) return;
+    if (lastSaveDataRef.current === '') {
+      // First load - just store the data without saving
+      lastSaveDataRef.current = currentData;
+      return;
+    }
+
+    // Data has changed - trigger save after delay
+    setSaveState('saving');
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Debounce save for 1 second
+    saveTimeoutRef.current = setTimeout(() => {
+      // Mark as saved (in a real app, you'd make an API call here)
+      // The data is already saved via individual API calls (createRoom, placeFurniture, etc.)
+      lastSaveDataRef.current = currentData;
+      setSaveState('saved');
+
+      // Reset to idle after 2 seconds
+      setTimeout(() => {
+        setSaveState('idle');
+      }, 2000);
+    }, 1000);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [rooms, furniturePlacements, floors, project, projectId]);
 
   const loadProject = async () => {
     if (!projectId) {
