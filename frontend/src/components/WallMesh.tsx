@@ -52,6 +52,32 @@ export function WallMesh({ wall, roomPosX, roomPosZ }: WallMeshProps) {
   };
 
   const wallColor = wall.color || '#e5e7eb';
+  const wallMaterial = wall.material || 'paint';
+
+  // Material properties for different wall types
+  const getMaterialProps = () => {
+    switch (wallMaterial) {
+      case 'brick':
+        return { color: '#8B4513', roughness: 0.9, metalness: 0.1 };
+      case 'wood_panel':
+        return { color: '#A0522D', roughness: 0.7, metalness: 0.0 };
+      case 'tile':
+        return { color: '#F5F5DC', roughness: 0.3, metalness: 0.2 };
+      case 'concrete':
+        return { color: '#808080', roughness: 0.95, metalness: 0.0 };
+      case 'wallpaper':
+        return { color: wallColor, roughness: 0.6, metalness: 0.0 };
+      case 'stone':
+        return { color: '#696969', roughness: 0.85, metalness: 0.1 };
+      case 'marble':
+        return { color: '#F8F8FF', roughness: 0.2, metalness: 0.3 };
+      case 'paint':
+      default:
+        return { color: wallColor, roughness: 0.8, metalness: 0.0 };
+    }
+  };
+
+  const matProps = getMaterialProps();
 
   return (
     <mesh
@@ -61,7 +87,9 @@ export function WallMesh({ wall, roomPosX, roomPosZ }: WallMeshProps) {
     >
       <boxGeometry args={[wallLength, wallHeight, wallThickness]} />
       <meshStandardMaterial
-        color={wallColor}
+        color={matProps.color}
+        roughness={matProps.roughness}
+        metalness={matProps.metalness}
         emissive={isSelected ? '#3b82f6' : '#000000'}
         emissiveIntensity={isSelected ? 0.3 : 0}
       />

@@ -18,6 +18,7 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
   const [ceilingHeightError, setCeilingHeightError] = useState<string>('');
   const [selectedWall, setSelectedWall] = useState<any>(null);
   const [wallColor, setWallColor] = useState<string>('#e5e7eb');
+  const [wallMaterial, setWallMaterial] = useState<string>('paint');
   const [roomName, setRoomName] = useState<string>('');
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
@@ -45,6 +46,7 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
           if (wall) {
             setSelectedWall(wall);
             setWallColor(wall.color || '#e5e7eb');
+            setWallMaterial(wall.material || 'paint');
           }
         } catch (error) {
           console.error('Error fetching wall:', error);
@@ -71,6 +73,26 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
     } catch (error) {
       console.error('Error updating wall color:', error);
       toast.error('Failed to update wall color');
+    }
+  };
+
+  // Handle wall material change
+  const handleWallMaterialChange = async (material: string) => {
+    if (!selectedWall) return;
+
+    setWallMaterial(material);
+
+    try {
+      await wallsApi.update(selectedWall.id, { material });
+      toast.success('Wall material updated', {
+        description: `Changed to ${material}`
+      });
+
+      // Trigger re-fetch of walls by updating selected wall
+      setSelectedWall({ ...selectedWall, material });
+    } catch (error) {
+      console.error('Error updating wall material:', error);
+      toast.error('Failed to update wall material');
     }
   };
 
@@ -347,9 +369,31 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
                       maxLength={7}
                     />
                   </div>
+
+                  {/* Wall Material Selector */}
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Wall Material / Texture
+                    </label>
+                    <select
+                      value={wallMaterial}
+                      onChange={(e) => handleWallMaterialChange(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500 transition-colors"
+                    >
+                      <option value="paint">Paint (Solid Color)</option>
+                      <option value="brick">Brick</option>
+                      <option value="wood_panel">Wood Panel</option>
+                      <option value="tile">Tile</option>
+                      <option value="concrete">Concrete</option>
+                      <option value="wallpaper">Wallpaper</option>
+                      <option value="stone">Stone</option>
+                      <option value="marble">Marble</option>
+                    </select>
+                  </div>
+
                   <button
                     onClick={() => setSelectedWallId(null)}
-                    className="mt-2 w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors"
+                    className="mt-4 w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors"
                   >
                     Deselect Wall
                   </button>

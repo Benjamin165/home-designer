@@ -372,5 +372,62 @@ export const aiApi = {
   async getGenerationStatus(generationId: number) {
     const response = await fetchWithErrorHandling(`${API_BASE_URL}/ai/generation/${generationId}`);
     return response.json();
+  },
+
+  /**
+   * Import product from URL by scraping image and specifications
+   */
+  async importFromUrl(url: string) {
+    const response = await fetchWithErrorHandling(
+      `${API_BASE_URL}/ai/url-import`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ url }),
+      },
+      60000 // 60 second timeout for scraping
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(
+        errorData.error?.message || 'Failed to import from URL',
+        response.status,
+        errorData.error?.details || 'URL import failed. Please try again.'
+      );
+    }
+
+    return response.json();
+  },
+
+  /**
+   * Confirm and save imported product as an asset
+   */
+  async confirmUrlImport(data: {
+    name: string;
+    category: string;
+    subcategory?: string;
+    imageUrl: string;
+    dimensions: { width: number; height: number; depth: number };
+    sourceUrl: string;
+    generationId?: number;
+  }) {
+    const response = await fetchWithErrorHandling(
+      `${API_BASE_URL}/ai/url-import/confirm`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(
+        errorData.error?.message || 'Failed to confirm import',
+        response.status,
+        errorData.error?.details || 'Failed to save imported asset. Please try again.'
+      );
+    }
+
+    return response.json();
   }
 };
