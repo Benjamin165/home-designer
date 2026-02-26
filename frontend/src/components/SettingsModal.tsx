@@ -34,10 +34,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'general' | 'ai-keys'>('general');
+  const [touchedApiKeys, setTouchedApiKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (isOpen) {
       loadSettings();
+      // Reset touched keys when modal opens
+      setTouchedApiKeys(new Set());
     }
   }, [isOpen]);
 
@@ -58,6 +61,34 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   };
 
   const handleSave = async () => {
+    // Validate API keys that have been touched
+    const apiKeyFields = ['trellis_api_key', 'openai_api_key', 'anthropic_api_key'];
+    const emptyTouchedKeys: string[] = [];
+
+    for (const field of apiKeyFields) {
+      if (touchedApiKeys.has(field)) {
+        const value = settings[field as keyof Settings] as string || '';
+        // Check if the value is empty or only whitespace
+        if (value.trim() === '') {
+          emptyTouchedKeys.push(field);
+        }
+      }
+    }
+
+    // If any touched API keys are empty, show error and prevent save
+    if (emptyTouchedKeys.length > 0) {
+      const fieldNames = emptyTouchedKeys.map(key => {
+        switch (key) {
+          case 'trellis_api_key': return 'TRELLIS API Key';
+          case 'openai_api_key': return 'OpenAI API Key';
+          case 'anthropic_api_key': return 'Anthropic API Key';
+          default: return key;
+        }
+      });
+      toast.error(`API key value is required for: ${fieldNames.join(', ')}`);
+      return;
+    }
+
     setSaving(true);
     try {
       await settingsApi.update(settings);
@@ -68,6 +99,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       }
 
       toast.success('Settings saved successfully');
+      // Reset touched keys after successful save
+      setTouchedApiKeys(new Set());
       onClose();
     } catch (error) {
       console.error('Failed to save settings:', error);
@@ -82,6 +115,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       ...prev,
       [key]: value,
     }));
+
+    // Track when API key fields are modified
+    const apiKeyFields = ['trellis_api_key', 'openai_api_key', 'anthropic_api_key'];
+    if (apiKeyFields.includes(key as string)) {
+      setTouchedApiKeys(prev => new Set(prev).add(key as string));
+    }
   };
 
   if (!isOpen) return null;
