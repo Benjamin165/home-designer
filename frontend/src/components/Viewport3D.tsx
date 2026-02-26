@@ -141,6 +141,7 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
     currentPoint: null,
     snappedEdge: null,
   });
+  const dragStateRef = useRef(dragState);
   const [furniturePreview, setFurniturePreview] = useState<{
     asset: any;
     position: { x: number; z: number };
@@ -153,6 +154,11 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
   const planeRef = useRef<THREE.Mesh>(null);
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const { camera, gl } = useThree();
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    dragStateRef.current = dragState;
+  }, [dragState]);
 
   // Handle dragging asset from library
   useEffect(() => {
@@ -434,6 +440,132 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
     }
   }, [previewDims?.width, previewDims?.depth]);
 
+  // Listen to canvas pointer events globally when drawing
+  useEffect(() => {
+    if (currentTool !== 'draw-wall') {
+      return;
+    }
+
+    const canvas = gl.domElement;
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+
+    const handleCanvasPointerMove = (e: PointerEvent) => {
+      if (!dragStateRef.current.isDrawing) return;
+
+      // Convert mouse position to normalized device coordinates
+      const rect = canvas.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      // Raycast to find intersection with ground plane
+      raycaster.setFromCamera(pointer, camera);
+      const planeGeometry = new THREE.PlaneGeometry(100, 100);
+      const planeMesh = new THREE.Mesh(planeGeometry);
+      planeMesh.rotation.x = -Math.PI / 2;
+      planeMesh.position.set(0, 0, 0);
+      planeMesh.updateMatrixWorld();
+
+      const intersects = raycaster.intersectObject(planeMesh);
+      if (intersects.length > 0) {
+        const point = intersects[0].point;
+
+        // Check if current point is near an edge (for opposite side snapping)
+        const snapEdge = findSnapEdge(point, rooms);
+        let snappedCurrentPoint = { x: point.x, z: point.z };
+
+        if (snapEdge) {
+          // Snap the current point to the edge
+          if (snapEdge.isHorizontal) {
+            snappedCurrentPoint.z = snapEdge.z;
+          } else {
+            snappedCurrentPoint.x = snapEdge.x;
+          }
+        }
+
+        setDragState((prev) => ({
+          ...prev,
+          currentPoint: snappedCurrentPoint,
+        }));
+      }
+    };
+
+    const handleCanvasPointerUp = (e: PointerEvent) => {
+      const currentDragState = dragStateRef.current;
+      console.log('[DEBUG handleCanvasPointerUp] Called! currentTool:', currentTool, 'isDrawing:', currentDragState.isDrawing);
+
+      if (!currentDragState.isDrawing || !currentDragState.startPoint) {
+        return;
+      }
+
+      // Convert mouse position to normalized device coordinates
+      const rect = canvas.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      // Raycast to find intersection with ground plane
+      raycaster.setFromCamera(pointer, camera);
+      const planeGeometry = new THREE.PlaneGeometry(100, 100);
+      const planeMesh = new THREE.Mesh(planeGeometry);
+      planeMesh.rotation.x = -Math.PI / 2;
+      planeMesh.position.set(0, 0, 0);
+      planeMesh.updateMatrixWorld();
+
+      const intersects = raycaster.intersectObject(planeMesh);
+      if (intersects.length > 0) {
+        const point = intersects[0].point;
+        const startPoint = currentDragState.startPoint;
+
+        console.log('[DEBUG handleCanvasPointerUp] point:', point);
+        console.log('[DEBUG handleCanvasPointerUp] startPoint:', startPoint);
+
+        // Calculate dimensions
+        const width = Math.abs(point.x - startPoint.x);
+        const depth = Math.abs(point.z - startPoint.z);
+        console.log('[DEBUG handleCanvasPointerUp] width:', width, 'depth:', depth);
+
+        // Only create room if dimensions are reasonable (> 0.5m)
+        if (width > 0.5 && depth > 0.5) {
+          const centerX = (startPoint.x + point.x) / 2;
+          const centerZ = (startPoint.z + point.z) / 2;
+
+          console.log('[DEBUG handleCanvasPointerUp] Creating room at center:', centerX, centerZ);
+
+          // Emit custom event with room data
+          const roomData = {
+            width,
+            depth,
+            position_x: centerX,
+            position_z: centerZ,
+          };
+
+          console.log('[DEBUG handleCanvasPointerUp] Dispatching createRoom event with data:', roomData);
+          window.dispatchEvent(
+            new CustomEvent('createRoom', { detail: roomData })
+          );
+        } else {
+          console.log('[DEBUG handleCanvasPointerUp] Room too small, not creating');
+        }
+      }
+
+      // Reset drag state
+      setDragState({
+        isDrawing: false,
+        startPoint: null,
+        currentPoint: null,
+        snappedEdge: null,
+      });
+    };
+
+    canvas.addEventListener('pointermove', handleCanvasPointerMove);
+    canvas.addEventListener('pointerup', handleCanvasPointerUp);
+
+    return () => {
+      canvas.removeEventListener('pointermove', handleCanvasPointerMove);
+      canvas.removeEventListener('pointerup', handleCanvasPointerUp);
+    };
+  }, [currentTool, camera, gl, rooms]);
+
   return (
     <>
       {/* Ambient lighting */}
@@ -467,7 +599,7 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
         onPointerUp={handlePointerUp}
       >
         <planeGeometry args={[100, 100]} />
-        <meshBasicMaterial transparent opacity={0} />
+        <meshBasicMaterial transparent opacity={0.001} depthWrite={false} />
       </mesh>
 
       {/* Preview rectangle while drawing */}
