@@ -29,6 +29,28 @@ interface Floor {
   order_index: number;
 }
 
+interface FurniturePlacement {
+  id: number;
+  room_id: number;
+  asset_id: number;
+  position_x: number;
+  position_y: number;
+  position_z: number;
+  rotation_x: number;
+  rotation_y: number;
+  rotation_z: number;
+  scale_x: number;
+  scale_y: number;
+  scale_z: number;
+  locked: boolean;
+  asset_name?: string;
+  category?: string;
+  width?: number;
+  height?: number;
+  depth?: number;
+  model_path?: string;
+}
+
 interface EditorState {
   // Current tool
   currentTool: EditorTool;
@@ -49,6 +71,12 @@ interface EditorState {
   setRooms: (rooms: Room[]) => void;
   addRoom: (room: Room) => void;
 
+  // Furniture placements
+  furniturePlacements: FurniturePlacement[];
+  setFurniturePlacements: (placements: FurniturePlacement[]) => void;
+  addFurniturePlacement: (placement: FurniturePlacement) => void;
+  removeFurniturePlacement: (id: number) => void;
+
   // Selection
   selectedRoomId: number | null;
   setSelectedRoomId: (id: number | null) => void;
@@ -56,6 +84,10 @@ interface EditorState {
   // Unit system
   unitSystem: 'metric' | 'imperial';
   setUnitSystem: (system: 'metric' | 'imperial') => void;
+
+  // Dragging state for furniture
+  draggingAsset: { id: number; name: string } | null;
+  setDraggingAsset: (asset: { id: number; name: string } | null) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -75,9 +107,21 @@ export const useEditorStore = create<EditorState>((set) => ({
   setRooms: (rooms) => set({ rooms }),
   addRoom: (room) => set((state) => ({ rooms: [...state.rooms, room] })),
 
+  furniturePlacements: [],
+  setFurniturePlacements: (placements) => set({ furniturePlacements: placements }),
+  addFurniturePlacement: (placement) =>
+    set((state) => ({ furniturePlacements: [...state.furniturePlacements, placement] })),
+  removeFurniturePlacement: (id) =>
+    set((state) => ({
+      furniturePlacements: state.furniturePlacements.filter((p) => p.id !== id),
+    })),
+
   selectedRoomId: null,
   setSelectedRoomId: (id) => set({ selectedRoomId: id }),
 
   unitSystem: 'metric',
   setUnitSystem: (system) => set({ unitSystem: system }),
+
+  draggingAsset: null,
+  setDraggingAsset: (asset) => set({ draggingAsset: asset }),
 }));
