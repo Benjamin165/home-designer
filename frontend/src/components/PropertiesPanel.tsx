@@ -1,17 +1,67 @@
 import { useEditorStore } from '../store/editorStore';
-import { X, ChevronRight, ChevronLeft } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { roomsApi, furnitureApi } from '../lib/api';
+import { toast } from 'sonner';
+import DeleteRoomDialog from './DeleteRoomDialog';
 
 interface PropertiesPanelProps {
   projectName: string;
 }
 
 function PropertiesPanel({ projectName }: PropertiesPanelProps) {
-  const { selectedRoomId, setSelectedRoomId, rooms, floors, currentFloorId } = useEditorStore();
+  const { selectedRoomId, setSelectedRoomId, rooms, floors, currentFloorId, furniturePlacements, setRooms, setFurniturePlacements } = useEditorStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
   const currentFloor = floors.find((f) => f.id === currentFloorId);
+
+  // Get furniture in the selected room
+  const roomFurniture = furniturePlacements.filter((f) => f.room_id === selectedRoomId);
+
+  const handleDeleteRoom = async (deleteFurniture: boolean) => {
+    if (!selectedRoom) return;
+
+    try {
+      if (deleteFurniture) {
+        // Delete all furniture in the room first
+        await Promise.all(
+          roomFurniture.map((furniture) => furnitureApi.delete(furniture.id))
+        );
+
+        // Update store to remove furniture
+        setFurniturePlacements(
+          furniturePlacements.filter((f) => f.room_id !== selectedRoomId)
+        );
+      }
+      // If not deleting furniture, we keep it (furniture will be orphaned but visible in space)
+
+      // Delete the room
+      await roomsApi.delete(selectedRoom.id);
+
+      // Update store to remove room
+      setRooms(rooms.filter((r) => r.id !== selectedRoom.id));
+
+      // Clear selection
+      setSelectedRoomId(null);
+
+      // Close dialog
+      setDeleteDialogOpen(false);
+
+      // Show success message
+      toast.success('Room deleted', {
+        description: deleteFurniture
+          ? `${selectedRoom.name || 'Room'} and ${roomFurniture.length} furniture item(s) deleted`
+          : `${selectedRoom.name || 'Room'} deleted, furniture kept in space`,
+      });
+    } catch (error) {
+      console.error('Error deleting room:', error);
+      toast.error('Failed to delete room', {
+        description: 'Please try again',
+      });
+    }
+  };
 
   // Toggle button (always visible)
   const toggleButton = (
@@ -126,6 +176,17 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
                   </div>
                 </div>
               </div>
+
+              {/* Delete Room Button */}
+              <div className="pt-4 border-t border-gray-700">
+                <button
+                  onClick={() => setDeleteDialogOpen(true)}
+                  className="w-full px-4 py-2.5 bg-red-600/10 hover:bg-red-600/20 border border-red-600/30 hover:border-red-600/50 text-red-400 hover:text-red-300 font-medium rounded-lg transition-all flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete Room
+                </button>
+              </div>
             </>
           ) : (
             // Project/Floor Overview (when nothing is selected)
@@ -173,6 +234,16 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
           )}
         </div>
       </div>
+
+      {/* Delete Room Dialog */}
+      <DeleteRoomDialog
+        isOpen={deleteDialogOpen}
+        roomName={selectedRoom?.name || 'Unnamed Room'}
+        furnitureCount={roomFurniture.length}
+        onClose={() => setDeleteDialogOpen(false)}
+        onDeleteWithFurniture={() => handleDeleteRoom(true)}
+        onDeleteKeepFurniture={() => handleDeleteRoom(false)}
+      />
     </>
   );
 }

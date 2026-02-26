@@ -962,19 +962,33 @@ export default function Viewport3D() {
       </button>
 
       {/* Context menu */}
-      {contextMenu.visible && (() => {
-        console.log('[DEBUG Render] Context menu rendering with:', contextMenu);
-        const items = getContextMenuItems();
-        console.log('[DEBUG Render] Items:', items);
-        return (
-          <ContextMenu
-            x={contextMenu.x}
-            y={contextMenu.y}
-            items={items}
-            onClose={() => setContextMenu({ ...contextMenu, visible: false })}
-          />
-        );
-      })()}
+      {contextMenu.visible && (
+        <div
+          style={{
+            position: 'fixed',
+            left: contextMenu.x,
+            top: contextMenu.y,
+            zIndex: 99999,
+            backgroundColor: 'red',
+            color: 'white',
+            padding: '20px',
+            border: '3px solid yellow'
+          }}
+        >
+          TEST MENU - X:{contextMenu.x} Y:{contextMenu.y}
+          <br/>
+          Type: {contextMenu.type}
+          <div onClick={() => setContextMenu({ ...contextMenu, visible: false })}>CLOSE</div>
+        </div>
+      )}
+      {contextMenu.visible && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={getContextMenuItems()}
+          onClose={() => setContextMenu({ ...contextMenu, visible: false })}
+        />
+      )}
     </div>
   );
 }
