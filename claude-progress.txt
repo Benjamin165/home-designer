@@ -1413,3 +1413,119 @@ Implementation complete with all three dialog options tested and working.
 Zero console errors. Feature verified end-to-end with browser automation.
 
 Status: 76/125 features passing (60.8%)
+
+====================
+Session 22: Features #23, #118 - Room Attachment & Ceiling Height Validation
+Date: 2026-02-26
+====================
+
+Completed: Features #23, #118 - Both passing
+
+Feature #23: Attach new rooms to existing rooms - PASSING
+- Implemented edge snapping with getRoomEdges() and findSnapEdge() helpers
+- Snap distance: 0.5m threshold for detecting nearby edges
+- Visual feedback with green highlight on snapped edges
+- Verified perfect adjacency: 0.0000m edge distance
+- Zero console errors
+
+Feature #118: Ceiling height minimum and maximum enforced - PASSING
+- Added editable input in PropertiesPanel with validation
+- Min: 2.0m, Max: 10.0m with error messages
+- Visual feedback with red border on validation errors
+- Comprehensive testing of all edge cases
+- Zero console errors
+
+Status: 79/125 features passing (63.2%)
+
+====================
+Session 22: Features #39, #40, #41 - Undo/Redo System
+Date: 2026-02-26
+====================
+
+Completed: Features #39, #40, #41 - All passing
+
+Feature #39: Undo last action (Ctrl+Z) - PASSING
+- Implemented complete undo/redo system in Zustand store
+- Added history state tracking with action types
+- Supports undoing furniture placement/deletion
+- Keyboard shortcut Ctrl+Z (and Cmd+Z on Mac)
+- Undo button in toolbar with proper enabled/disabled states
+- Verified: Actions are reversed correctly
+- Verified: Multiple undos work in reverse chronological order
+
+Feature #40: Redo last undone action (Ctrl+Y) - PASSING
+- Redo functionality integrated with history system
+- Keyboard shortcut Ctrl+Y (and Cmd+Y/Cmd+Shift+Z on Mac)
+- Redo button in toolbar with proper states
+- Correctly restores most recently undone action
+- Verified: Furniture reappears after redo
+- Verified: Undo/redo cycle maintains state correctly
+
+Feature #41: Edit history timeline displays all actions - PASSING
+- Created EditHistory component with horizontal scrollable timeline
+- Displays all actions chronologically with numbered badges
+- Shows action description and timestamp ("Just now", "5m ago", etc.)
+- Current action highlighted with blue background
+- Future actions (in redo stack) shown with reduced opacity
+- Hover tooltips show full action details
+- Integrated as collapsible bottom panel in Editor
+- Verified: Shows 5+ actions correctly
+- Verified: Tooltips appear on hover
+
+Implementation details:
+1. Extended Zustand editorStore with:
+   - history: HistoryAction[] - stores all actions
+   - historyIndex: number - current position in history
+   - addAction() - records new actions
+   - undo() - reverses last action via API calls
+   - redo() - reapplies undone action
+   - canUndo(), canRedo() - button state helpers
+
+2. Modified Viewport3D to record actions:
+   - furniture_add recorded when placing furniture
+   - furniture_remove recorded before deletion
+   - Duplicate also records furniture_add
+
+3. Updated Editor component:
+   - Added keyboard event listeners for Ctrl+Z/Ctrl+Y
+   - Wired undo/redo buttons with disabled states
+   - Integrated EditHistory bottom panel (h-48)
+
+4. Created EditHistory component:
+   - Horizontal scrollable timeline
+   - Action cards with numbered badges
+   - Color-coded states (current=blue, future=gray)
+   - Responsive time formatting
+   - Hover tooltips
+
+Testing methodology:
+- Browser automation with Playwright
+- Created comprehensive verification test suite
+- Tested keyboard shortcuts (Ctrl+Z, Ctrl+Y)
+- Tested button clicks
+- Tested multiple undo/redo cycles
+- Verified history panel displays actions correctly
+- Zero console errors throughout all tests
+
+Key accomplishments:
+- Production-ready undo/redo system
+- Clean integration with existing furniture placement system
+- Intuitive UI with clear visual feedback
+- Proper state management avoiding circular dependencies
+- History limited to last 100 actions to prevent memory issues
+- Graceful error handling in undo/redo operations
+
+Files modified/created:
+1. frontend/src/store/editorStore.ts - undo/redo state and logic
+2. frontend/src/components/Viewport3D.tsx - action recording
+3. frontend/src/components/Editor.tsx - keyboard shortcuts, button wiring
+4. frontend/src/components/EditHistory.tsx - timeline component (new)
+
+Status: 80/125 features passing (64.0%)
+
+Next priorities:
+- Continue implementing remaining editor features
+- Additional manipulation tools
+- Material and lighting systems
+- Advanced furniture features
+
