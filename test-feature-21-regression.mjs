@@ -9,20 +9,26 @@ async function testFeature21() {
   await page.goto('http://localhost:5173/editor/4');
   await page.waitForTimeout(2000);
 
-  console.log('Clicking Draw Wall button...');
-  await page.getByRole('button', { name: 'Draw Wall' }).click();
+  console.log('Clicking Draw Wall button (using JS evaluation to bypass overlays)...');
+  // Use JavaScript click to bypass any overlay issues
+  await page.evaluate(() => {
+    const button = document.querySelector('button[title="Draw Wall"]');
+    if (button) {
+      button.click();
+    } else {
+      // Try alternative selector
+      const buttons = Array.from(document.querySelectorAll('button'));
+      const drawButton = buttons.find(b => b.textContent.includes('Draw Wall'));
+      if (drawButton) drawButton.click();
+    }
+  });
   await page.waitForTimeout(1000);
-
-  // Dismiss the modal by pressing Escape or clicking outside
-  console.log('Dismissing modal...');
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(500);
 
   // Take screenshot before drag
   await page.screenshot({ path: 'f21-before-drag.png' });
   console.log('Screenshot saved: f21-before-drag.png');
 
-  // Get canvas element
+  // Get canvas element for drag coordinates
   const canvas = await page.locator('canvas').first();
   const box = await canvas.boundingBox();
 

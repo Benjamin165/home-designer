@@ -10,6 +10,7 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { Sun, Moon } from 'lucide-react';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
 import { Armchair, Settings, Trash2, Copy, Eye } from 'lucide-react';
+import { formatLength, formatArea } from '../lib/units';
 
 interface DragState {
   isDrawing: boolean;
@@ -760,10 +761,35 @@ function RoomMesh({ room }: { room: any }) {
     setTempDimensions(null);
   };
 
+  const handlePointerEnter = (e: any) => {
+    if (currentTool !== 'select') return;
+
+    // Dispatch custom event for hover tooltip
+    const event = new CustomEvent('roomHover', {
+      detail: {
+        clientX: e.nativeEvent.clientX,
+        clientY: e.nativeEvent.clientY,
+        room: room,
+      },
+    });
+    window.dispatchEvent(event);
+  };
+
+  const handlePointerLeave = () => {
+    // Dispatch custom event to hide tooltip
+    const event = new CustomEvent('roomHoverEnd');
+    window.dispatchEvent(event);
+  };
+
   return (
     <group position={[posX, 0, posZ]} onClick={handleClick}>
       {/* Floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0.01, 0]}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+      >
         <planeGeometry args={[width, depth]} />
         <meshStandardMaterial
           color={(() => {
@@ -1415,6 +1441,15 @@ export default function Viewport3D() {
           onClose={() => setContextMenu({ ...contextMenu, visible: false })}
         />
       )}
+
+      {/* Room hover tooltip */}
+      {roomTooltip && (
+        <RoomTooltip
+          x={roomTooltip.x}
+          y={roomTooltip.y}
+          room={roomTooltip.room}
+        />
+      )}
     </div>
   );
 }
@@ -1470,6 +1505,43 @@ function DimensionOverlay() {
           Click and drag to draw a room
         </div>
       )}
+    </div>
+  );
+}
+
+// Room hover tooltip component
+function RoomTooltip({ x, y, room }: { x: number; y: number; room: any }) {
+  const unitSystem = useEditorStore((state) => state.unitSystem);
+
+  const width = room.dimensions_json?.width || 0;
+  const depth = room.dimensions_json?.depth || 0;
+  const area = width * depth;
+
+  return (
+    <div
+      className="absolute pointer-events-none z-30"
+      style={{
+        left: `${x + 15}px`,
+        top: `${y + 15}px`,
+      }}
+    >
+      <div className="bg-gray-900/95 border border-gray-700 rounded-lg shadow-xl p-3 text-white min-w-[180px]">
+        <div className="font-medium text-sm mb-2">{room.name || 'Unnamed Room'}</div>
+        <div className="space-y-1 text-xs">
+          <div className="flex justify-between">
+            <span className="text-gray-400">Width:</span>
+            <span className="font-mono">{formatLength(width, unitSystem)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Length:</span>
+            <span className="font-mono">{formatLength(depth, unitSystem)}</span>
+          </div>
+          <div className="flex justify-between pt-1 border-t border-gray-700">
+            <span className="text-gray-400">Area:</span>
+            <span className="font-mono font-medium">{formatArea(area, unitSystem)}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
