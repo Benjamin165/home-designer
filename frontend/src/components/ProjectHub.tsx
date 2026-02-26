@@ -137,7 +137,7 @@ function ProjectHub() {
 
         {error && !loading && (
           <div className="max-w-md mx-auto mt-12">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6" role="alert" aria-live="assertive">
               <div className="flex">
                 <div className="flex-shrink-0">
                   <svg
@@ -284,7 +284,7 @@ function ProjectHub() {
               </div>
 
               {createError && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md" role="alert" aria-live="assertive">
                   <p className="text-sm text-red-600">{createError}</p>
                 </div>
               )}
