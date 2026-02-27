@@ -12,6 +12,8 @@ import ExportModal from './ExportModal';
 import EditHistory from './EditHistory';
 import FloorPlanOverlay from './FloorPlanOverlay';
 import KeyboardShortcuts, { useKeyboardShortcuts } from './KeyboardShortcuts';
+import PhotoToRoomModal from './PhotoToRoomModal';
+import AIHistoryModal from './AIHistoryModal';
 import { getUnitLabel } from '../lib/units';
 import {
   MousePointer2,
@@ -35,6 +37,9 @@ import {
   Lightbulb,
   User,
   Pentagon,
+  Camera,
+  History,
+  Wand2,
 } from 'lucide-react';
 
 interface Project {
@@ -86,6 +91,10 @@ function Editor() {
   // Settings modal state
   const [showSettings, setShowSettings] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // AI Features modal state
+  const [showPhotoToRoom, setShowPhotoToRoom] = useState(false);
+  const [showAIHistory, setShowAIHistory] = useState(false);
 
   // Register keyboard shortcuts
   useKeyboardShortcuts();
@@ -1119,6 +1128,25 @@ function Editor() {
               </button>
             </div>
 
+            {/* AI Features */}
+            <div className="flex items-center bg-gradient-to-r from-purple-900/50 to-blue-900/50 rounded-lg p-1 gap-1 border border-purple-700/50">
+              <button
+                onClick={() => setShowPhotoToRoom(true)}
+                disabled={!currentFloorId}
+                className="p-2 rounded text-purple-300 hover:bg-purple-700/50 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Photo to Room (AI)"
+              >
+                <Camera className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setShowAIHistory(true)}
+                className="p-2 rounded text-purple-300 hover:bg-purple-700/50 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500"
+                title="AI Generation History"
+              >
+                <History className="w-5 h-5" />
+              </button>
+            </div>
+
             <div className="flex items-center bg-gray-700 rounded-lg p-1 gap-1">
               <button
                 onClick={async () => {
@@ -1538,6 +1566,27 @@ function Editor() {
 
       {/* Keyboard Shortcuts Modal */}
       <KeyboardShortcuts isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
+      {/* Photo to Room Modal */}
+      {currentFloorId && (
+        <PhotoToRoomModal
+          isOpen={showPhotoToRoom}
+          onClose={() => setShowPhotoToRoom(false)}
+          onSuccess={(room) => {
+            // Add the new room to the store
+            const addRoom = useEditorStore.getState().addRoom;
+            addRoom(room);
+            toast.success('Room created from photo!');
+          }}
+          currentFloorId={currentFloorId}
+        />
+      )}
+
+      {/* AI History Modal */}
+      <AIHistoryModal
+        isOpen={showAIHistory}
+        onClose={() => setShowAIHistory(false)}
+      />
     </div>
   );
 }

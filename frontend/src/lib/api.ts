@@ -544,7 +544,100 @@ export const aiApi = {
     }
 
     return response.json();
-  }
+  },
+
+  /**
+   * Analyze a room photo using AI vision
+   */
+  async analyzeRoom(formData: FormData) {
+    const response = await fetch(`${API_BASE_URL}/ai/analyze-room`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(
+        errorData.error?.message || 'Failed to analyze room',
+        response.status,
+        errorData.error?.details || 'Room analysis failed. Please try again.'
+      );
+    }
+
+    return response.json();
+  },
+
+  /**
+   * Create a room from AI analysis results
+   */
+  async createRoomFromAnalysis(
+    floorId: number,
+    analysis: any,
+    adjustments?: {
+      name?: string;
+      width?: number;
+      depth?: number;
+      ceiling_height?: number;
+      floor_material?: string;
+    }
+  ) {
+    const response = await fetchWithErrorHandling(
+      `${API_BASE_URL}/ai/create-room-from-analysis`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ floorId, analysis, adjustments }),
+      }
+    );
+
+    return response.json();
+  },
+
+  /**
+   * Get AI generation history
+   */
+  async getGenerations(params?: {
+    limit?: number;
+    offset?: number;
+    type?: string;
+    status?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.offset) queryParams.append('offset', params.offset.toString());
+    if (params?.type) queryParams.append('type', params.type);
+    if (params?.status) queryParams.append('status', params.status);
+
+    const url = `${API_BASE_URL}/ai/generations${queryParams.toString() ? `?${queryParams}` : ''}`;
+    const response = await fetchWithErrorHandling(url);
+    return response.json();
+  },
+
+  /**
+   * Delete an AI generation record
+   */
+  async deleteGeneration(id: number) {
+    const response = await fetchWithErrorHandling(
+      `${API_BASE_URL}/ai/generations/${id}`,
+      { method: 'DELETE' }
+    );
+    return response.json();
+  },
+
+  /**
+   * Check room vision API status
+   */
+  async getRoomVisionStatus() {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/ai/room-vision/status`);
+    return response.json();
+  },
+
+  /**
+   * Check TRELLIS API status
+   */
+  async getTrellisStatus() {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/ai/trellis/status`);
+    return response.json();
+  },
 };
 
 /**

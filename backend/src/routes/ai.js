@@ -687,4 +687,387 @@ router.post('/trellis/test', async (req, res) => {
   }
 });
 
+// ============================================================================
+// PHOTO-TO-ROOM AI FEATURES
+// ============================================================================
+
+import { analyzeRoomPhoto, analysisToRoomData, analysisToWalls } from '../services/room-vision.js';
+
+/**
+ * Get Anthropic API key from settings
+ */
+async function getAnthropicApiKey() {
+  try {
+    const db = await getDatabase();
+    const result = db.exec(
+      'SELECT value, encrypted FROM user_settings WHERE key = ?',
+      ['anthropic_api_key']
+    );
+
+    if (result.length === 0 || result[0].values.length === 0) {
+      return null;
+    }
+
+    const value = result[0].values[0][0];
+    const encrypted = result[0].values[0][1] === 1;
+
+    if (encrypted) {
+      return decrypt(value);
+    }
+
+    return value;
+  } catch (error) {
+    console.error('Error fetching Anthropic API key:', error);
+    return null;
+  }
+}
+
+/**
+ * GET /api/ai/room-vision/status
+ * Check if room vision AI is configured
+ */
+router.get('/room-vision/status', async (req, res) => {
+  try {
+    const apiKey = await getAnthropicApiKey();
+    const configured = !!(apiKey && apiKey !== '****' && apiKey !== '');
+    
+    res.json({
+      configured,
+      message: configured
+        ? 'Room Vision AI is ready (Claude Vision)'
+        : 'Anthropic API key not configured. Add it in Settings to enable photo-to-room AI.',
+    });
+  } catch (error) {
+    console.error('Error checking room vision status:', error);
+    res.status(500).json({
+      configured: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/ai/analyze-room
+ * Analyze a room photo and extract room structure
+ */
+router.post('/analyze-room', upload.single('photo'), async (req, res) => {
+  let generationId = null;
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        error: { message: 'No photo uploaded' }
+      });
+    }
+
+    const { floorId } = req.body;
+    
+    if (!floorId) {
+      return res.status(400).json({
+        error: { message: 'Floor ID is required' }
+      });
+    }
+
+    const db = await getDatabase();
+    const imagePath = `/assets/uploads/${req.file.filename}`;
+
+    // Create AI generation record
+    db.run(
+      `INSERT INTO ai_generations (type, input_image_path, status, created_at)
+       VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
+      ['photo_to_room', imagePath, 'processing']
+    );
+
+    const genResult = db.exec('SELECT last_insert_rowid() as id');
+    generationId = genResult[0].values[0][0];
+    saveDatabase();
+
+    // Get API key
+    const apiKey = await getAnthropicApiKey();
+    
+    if (!apiKey || apiKey === '****' || apiKey === '') {
+      db.run(
+        `UPDATE ai_generations SET status = ?, error_message = ? WHERE id = ?`,
+        ['failed', 'Anthropic API key not configured', generationId]
+      );
+      saveDatabase();
+      
+      return res.status(400).json({
+        error: { message: 'Anthropic API key not configured. Add it in Settings.' },
+        generationId
+      });
+    }
+
+    // Analyze the photo
+    let analysis;
+    try {
+      analysis = await analyzeRoomPhoto(imagePath, apiKey);
+    } catch (analysisError) {
+      db.run(
+        `UPDATE ai_generations SET status = ?, error_message = ? WHERE id = ?`,
+        ['failed', analysisError.message, generationId]
+      );
+      saveDatabase();
+      
+      return res.status(500).json({
+        error: { 
+          message: 'Failed to analyze room photo',
+          details: analysisError.message
+        },
+        generationId
+      });
+    }
+
+    // Convert analysis to room data
+    const roomData = analysisToRoomData(analysis, parseInt(floorId));
+
+    // Update generation record with success
+    db.run(
+      `UPDATE ai_generations SET status = ?, parameters = ? WHERE id = ?`,
+      ['completed', JSON.stringify(analysis), generationId]
+    );
+    saveDatabase();
+
+    res.json({
+      success: true,
+      analysis,
+      roomData,
+      imagePath,
+      generationId,
+      message: `Detected ${roomData.name} (${analysis.confidence * 100}% confidence)`
+    });
+
+  } catch (error) {
+    console.error('Error analyzing room:', error);
+
+    if (generationId) {
+      try {
+        const db = await getDatabase();
+        db.run(
+          `UPDATE ai_generations SET status = ?, error_message = ? WHERE id = ?`,
+          ['failed', error.message, generationId]
+        );
+        saveDatabase();
+      } catch (updateError) {
+        console.error('Error updating generation record:', updateError);
+      }
+    }
+
+    res.status(500).json({
+      error: {
+        message: 'Failed to analyze room',
+        details: error.message
+      }
+    });
+  }
+});
+
+/**
+ * POST /api/ai/create-room-from-analysis
+ * Create a room from AI analysis results
+ */
+router.post('/create-room-from-analysis', async (req, res) => {
+  try {
+    const { floorId, analysis, adjustments } = req.body;
+
+    if (!floorId || !analysis) {
+      return res.status(400).json({
+        error: { message: 'Floor ID and analysis are required' }
+      });
+    }
+
+    const db = await getDatabase();
+
+    // Verify floor exists
+    const floorCheck = db.exec('SELECT id, project_id FROM floors WHERE id = ?', [parseInt(floorId)]);
+    if (floorCheck.length === 0 || floorCheck[0].values.length === 0) {
+      return res.status(404).json({
+        error: { message: 'Floor not found' }
+      });
+    }
+
+    // Apply any user adjustments
+    const roomData = analysisToRoomData(analysis, parseInt(floorId));
+    
+    if (adjustments) {
+      if (adjustments.name) roomData.name = adjustments.name;
+      if (adjustments.width) roomData.width = adjustments.width;
+      if (adjustments.depth) roomData.depth = adjustments.depth;
+      if (adjustments.ceiling_height) roomData.ceiling_height = adjustments.ceiling_height;
+      if (adjustments.floor_material) roomData.floor_material = adjustments.floor_material;
+    }
+
+    // Create the room
+    db.run(
+      `INSERT INTO rooms (
+        floor_id, name, width, depth, ceiling_height,
+        floor_material, position_x, position_y, position_z,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [
+        parseInt(floorId),
+        roomData.name,
+        roomData.width,
+        roomData.depth,
+        roomData.ceiling_height,
+        roomData.floor_material,
+        roomData.position_x,
+        roomData.position_y,
+        roomData.position_z
+      ]
+    );
+
+    // Get created room
+    const roomResult = db.exec('SELECT * FROM rooms ORDER BY id DESC LIMIT 1');
+    const columns = roomResult[0].columns;
+    const row = roomResult[0].values[0];
+    const room = {};
+    columns.forEach((col, idx) => {
+      room[col] = row[idx];
+    });
+
+    // Create walls based on analysis
+    const wallsData = analysisToWalls(analysis, room.id, {
+      width: roomData.width,
+      depth: roomData.depth,
+      height: roomData.ceiling_height
+    });
+
+    const createdWalls = [];
+    for (const wall of wallsData) {
+      db.run(
+        `INSERT INTO walls (
+          room_id, start_x, start_y, end_x, end_y,
+          height, thickness, material,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [
+          wall.room_id,
+          wall.start_x,
+          wall.start_y,
+          wall.end_x,
+          wall.end_y,
+          wall.height,
+          wall.thickness,
+          wall.material
+        ]
+      );
+
+      const wallResult = db.exec('SELECT * FROM walls ORDER BY id DESC LIMIT 1');
+      const wallCols = wallResult[0].columns;
+      const wallRow = wallResult[0].values[0];
+      const createdWall = {};
+      wallCols.forEach((col, idx) => {
+        createdWall[col] = wallRow[idx];
+      });
+      createdWalls.push(createdWall);
+    }
+
+    saveDatabase();
+
+    res.status(201).json({
+      success: true,
+      room,
+      walls: createdWalls,
+      message: `Created ${room.name} with ${createdWalls.length} walls`
+    });
+
+  } catch (error) {
+    console.error('Error creating room from analysis:', error);
+    res.status(500).json({
+      error: {
+        message: 'Failed to create room',
+        details: error.message
+      }
+    });
+  }
+});
+
+/**
+ * GET /api/ai/generations
+ * Get AI generation history
+ */
+router.get('/generations', async (req, res) => {
+  try {
+    const { limit = 50, offset = 0, type, status } = req.query;
+    const db = await getDatabase();
+
+    let sql = 'SELECT * FROM ai_generations WHERE 1=1';
+    const params = [];
+
+    if (type) {
+      sql += ' AND type = ?';
+      params.push(type);
+    }
+
+    if (status) {
+      sql += ' AND status = ?';
+      params.push(status);
+    }
+
+    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(parseInt(limit), parseInt(offset));
+
+    const result = db.exec(sql, params);
+
+    if (result.length === 0 || result[0].values.length === 0) {
+      return res.json({ generations: [], total: 0 });
+    }
+
+    const columns = result[0].columns;
+    const generations = result[0].values.map(row => {
+      const gen = {};
+      columns.forEach((col, idx) => {
+        gen[col] = row[idx];
+      });
+      // Parse JSON fields
+      if (gen.parameters) {
+        try {
+          gen.parameters = JSON.parse(gen.parameters);
+        } catch (e) {}
+      }
+      return gen;
+    });
+
+    // Get total count
+    const countResult = db.exec('SELECT COUNT(*) as count FROM ai_generations');
+    const total = countResult[0].values[0][0];
+
+    res.json({ generations, total });
+  } catch (error) {
+    console.error('Error fetching generations:', error);
+    res.status(500).json({
+      error: { message: 'Failed to fetch generation history' }
+    });
+  }
+});
+
+/**
+ * DELETE /api/ai/generations/:id
+ * Delete an AI generation record
+ */
+router.delete('/generations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+
+    const check = db.exec('SELECT id FROM ai_generations WHERE id = ?', [parseInt(id)]);
+    if (check.length === 0 || check[0].values.length === 0) {
+      return res.status(404).json({
+        error: { message: 'Generation not found' }
+      });
+    }
+
+    db.run('DELETE FROM ai_generations WHERE id = ?', [parseInt(id)]);
+    saveDatabase();
+
+    res.json({ success: true, message: 'Generation deleted' });
+  } catch (error) {
+    console.error('Error deleting generation:', error);
+    res.status(500).json({
+      error: { message: 'Failed to delete generation' }
+    });
+  }
+});
+
 export default router;

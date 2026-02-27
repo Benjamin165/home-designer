@@ -32,6 +32,7 @@
     "db:init": "node src/db/init.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "archiver": "^7.0.1",
     "cheerio": "^1.0.0-rc.12",
     "cors": "^2.8.5",
