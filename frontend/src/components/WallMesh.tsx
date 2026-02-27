@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { useEditorStore, type EditorState } from '../store/editorStore';
 
 interface Wall {
@@ -20,9 +21,10 @@ interface WallMeshProps {
   isCurrentFloor?: boolean;
   opacity?: number;
   wireframe?: boolean;
+  xray?: boolean;
 }
 
-export function WallMesh({ wall, roomPosX: _roomPosX, roomPosZ: _roomPosZ, isCurrentFloor = true, opacity, wireframe = false }: WallMeshProps) {
+export function WallMesh({ wall, roomPosX: _roomPosX, roomPosZ: _roomPosZ, isCurrentFloor = true, opacity, wireframe = false, xray = false }: WallMeshProps) {
   const selectedWallId = useEditorStore((state: EditorState) => state.selectedWallId);
   const setSelectedWallId = useEditorStore((state: EditorState) => state.setSelectedWallId);
   const currentTool = useEditorStore((state: EditorState) => state.currentTool);
@@ -98,8 +100,10 @@ export function WallMesh({ wall, roomPosX: _roomPosX, roomPosZ: _roomPosZ, isCur
         emissive={isSelected ? '#3b82f6' : '#000000'}
         emissiveIntensity={isSelected ? 0.3 : 0}
         wireframe={wireframe}
-        transparent={effectiveOpacity < 1}
+        transparent={effectiveOpacity < 1 || xray}
         opacity={effectiveOpacity}
+        depthWrite={!xray}
+        side={xray ? THREE.DoubleSide : THREE.FrontSide}
       />
     </mesh>
   );

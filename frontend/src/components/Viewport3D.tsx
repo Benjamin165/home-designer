@@ -1,5 +1,5 @@
 import { Canvas, useThree, ThreeEvent } from '@react-three/fiber';
-import { OrbitControls, Grid, Box } from '@react-three/drei';
+import { OrbitControls, Grid, Box, TransformControls } from '@react-three/drei';
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useEditorStore } from '../store/editorStore';
@@ -1265,8 +1265,9 @@ function RoomMesh({ room, isCurrentFloor = true }: { room: any; isCurrentFloor?:
               }
             })()}
             wireframe={isWireframe}
-            transparent={effectiveOpacity < 1}
+            transparent={effectiveOpacity < 1 || isXray}
             opacity={effectiveOpacity}
+            depthWrite={!isXray}
           />
         </mesh>
       )}
@@ -1279,8 +1280,9 @@ function RoomMesh({ room, isCurrentFloor = true }: { room: any; isCurrentFloor?:
             color={room.ceiling_color || "#f3f4f6"}
             side={THREE.DoubleSide}
             wireframe={isWireframe}
-            transparent={effectiveOpacity < 1}
+            transparent={effectiveOpacity < 1 || isXray}
             opacity={effectiveOpacity}
+            depthWrite={!isXray}
           />
         </mesh>
       )}
@@ -1297,6 +1299,7 @@ function RoomMesh({ room, isCurrentFloor = true }: { room: any; isCurrentFloor?:
             isCurrentFloor={isCurrentFloor}
             opacity={effectiveOpacity}
             wireframe={isWireframe}
+            xray={isXray}
           />
         ))
       ) : showWalls ? (
@@ -1305,25 +1308,25 @@ function RoomMesh({ room, isCurrentFloor = true }: { room: any; isCurrentFloor?:
           {/* Front wall */}
           <mesh position={[0, height / 2, depth / 2]}>
             <boxGeometry args={[width, height, 0.15]} />
-            <meshStandardMaterial color="#e5e7eb" wireframe={isWireframe} transparent={effectiveOpacity < 1} opacity={effectiveOpacity} />
+            <meshStandardMaterial color="#e5e7eb" wireframe={isWireframe} transparent={effectiveOpacity < 1 || isXray} opacity={effectiveOpacity} depthWrite={!isXray} side={isXray ? THREE.DoubleSide : THREE.FrontSide} />
           </mesh>
 
           {/* Back wall */}
           <mesh position={[0, height / 2, -depth / 2]}>
             <boxGeometry args={[width, height, 0.15]} />
-            <meshStandardMaterial color="#e5e7eb" wireframe={isWireframe} transparent={effectiveOpacity < 1} opacity={effectiveOpacity} />
+            <meshStandardMaterial color="#e5e7eb" wireframe={isWireframe} transparent={effectiveOpacity < 1 || isXray} opacity={effectiveOpacity} depthWrite={!isXray} side={isXray ? THREE.DoubleSide : THREE.FrontSide} />
           </mesh>
 
           {/* Left wall */}
           <mesh position={[-width / 2, height / 2, 0]}>
             <boxGeometry args={[0.15, height, depth]} />
-            <meshStandardMaterial color="#e5e7eb" wireframe={isWireframe} transparent={effectiveOpacity < 1} opacity={effectiveOpacity} />
+            <meshStandardMaterial color="#e5e7eb" wireframe={isWireframe} transparent={effectiveOpacity < 1 || isXray} opacity={effectiveOpacity} depthWrite={!isXray} side={isXray ? THREE.DoubleSide : THREE.FrontSide} />
           </mesh>
 
           {/* Right wall */}
           <mesh position={[width / 2, height / 2, 0]}>
             <boxGeometry args={[0.15, height, depth]} />
-            <meshStandardMaterial color="#e5e7eb" wireframe={isWireframe} transparent={effectiveOpacity < 1} opacity={effectiveOpacity} />
+            <meshStandardMaterial color="#e5e7eb" wireframe={isWireframe} transparent={effectiveOpacity < 1 || isXray} opacity={effectiveOpacity} depthWrite={!isXray} side={isXray ? THREE.DoubleSide : THREE.FrontSide} />
           </mesh>
         </>
       ) : null}
@@ -1389,7 +1392,10 @@ function RoomMesh({ room, isCurrentFloor = true }: { room: any; isCurrentFloor?:
   );
 }
 
-// Furniture mesh component
+// Transform mode for furniture manipulation
+type TransformMode = 'translate' | 'rotate' | 'scale';
+
+// Furniture mesh component with TransformControls
 function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContextMenu?: (e: any, furniture: any) => void }) {
   const width = furniture.width || 1;
   const height = furniture.height || 1;
@@ -1407,13 +1413,49 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
 
   const isSelected = selectedFurnitureId === furniture.id || selectedFurnitureIds.includes(furniture.id);
   const groupRef = useRef<THREE.Group>(null);
+  const transformRef = useRef<any>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; z: number } | null>(null);
   const [snappedWall, setSnappedWall] = useState<'north' | 'south' | 'east' | 'west' | null>(null);
+  const [transformMode, setTransformMode] = useState<TransformMode>('translate');
+  const [, forceUpdate] = useState(0);
 
-  console.log('[DEBUG FurnitureMesh] Rendering furniture:', furniture);
-  console.log('[DEBUG FurnitureMesh] Dimensions:', { width, height, depth });
-  console.log('[DEBUG FurnitureMesh] Position:', [furniture.position_x, furniture.position_y, furniture.position_z]);
+  // Force update after mount so TransformControls can access groupRef
+  useEffect(() => {
+    if (isSelected) {
+      forceUpdate(n => n + 1);
+    }
+  }, [isSelected]);
+
+  // Keyboard shortcuts for transform modes (only when this furniture is selected)
+  useEffect(() => {
+    if (!isSelected) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      
+      switch (e.key.toLowerCase()) {
+        case 'g': // Grab/move
+        case 'w': // Move (Blender style)
+          setTransformMode('translate');
+          break;
+        case 'r': // Rotate
+        case 'e': // Rotate (Unity style)
+          setTransformMode('rotate');
+          break;
+        case 's': // Scale (only if not typing)
+          if (!e.ctrlKey && !e.metaKey) {
+            setTransformMode('scale');
+          }
+          break;
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSelected]);
+
+  console.log('[DEBUG FurnitureMesh] Rendering furniture:', furniture.id, 'selected:', isSelected);
 
   const handlePointerDown = (e: any) => {
     // Check if it's a right-click (button 2)
@@ -1603,7 +1645,56 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
   // Check if this is a lighting asset
   const isLightingAsset = furniture.category === 'Lighting';
 
-  return (
+  // Handle transform changes from TransformControls
+  const handleTransformChange = () => {
+    if (!groupRef.current) return;
+    
+    const pos = groupRef.current.position;
+    const rot = groupRef.current.rotation;
+    const scale = groupRef.current.scale;
+    
+    // Update store immediately for smooth visual feedback
+    updateFurniturePlacement(furniture.id, {
+      position_x: pos.x,
+      position_y: pos.y,
+      position_z: pos.z,
+      rotation_x: rot.x,
+      rotation_y: rot.y,
+      rotation_z: rot.z,
+      scale_x: scale.x,
+      scale_y: scale.y,
+      scale_z: scale.z,
+    });
+  };
+
+  // Save to backend when transform ends
+  const handleTransformEnd = async () => {
+    if (!groupRef.current) return;
+    
+    const pos = groupRef.current.position;
+    const rot = groupRef.current.rotation;
+    const scale = groupRef.current.scale;
+    
+    try {
+      await furnitureApi.update(furniture.id, {
+        position_x: pos.x,
+        position_y: pos.y,
+        position_z: pos.z,
+        rotation_x: rot.x,
+        rotation_y: rot.y,
+        rotation_z: rot.z,
+        scale_x: scale.x,
+        scale_y: scale.y,
+        scale_z: scale.z,
+      });
+      console.log('[FurnitureMesh] Transform saved to backend');
+    } catch (error) {
+      console.error('[FurnitureMesh] Failed to save transform:', error);
+      toast.error('Failed to save furniture transform');
+    }
+  };
+
+  const furnitureGroup = (
     <group
       ref={groupRef}
       position={[furniture.position_x, furniture.position_y, furniture.position_z]}
@@ -1615,9 +1706,10 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
     >
       <Box args={[width, height, depth]} position={[0, height / 2, 0]}>
         <meshStandardMaterial
-          color={isLightingAsset ? "#ffeb3b" : "#ff0000"}
-          emissive={isLightingAsset ? "#ffeb3b" : "#ff0000"}
-          emissiveIntensity={isLightingAsset ? 0.8 : 0.5}
+          color={isLightingAsset ? "#ffeb3b" : "#8B4513"}
+          emissive={isLightingAsset ? "#ffeb3b" : "#000000"}
+          emissiveIntensity={isLightingAsset ? 0.8 : 0}
+          roughness={0.6}
         />
       </Box>
 
@@ -1634,7 +1726,7 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
       )}
 
       {/* Selection indicator - wireframe box */}
-      {isSelected && (
+      {isSelected && !isDragging && (
         <Box args={[width + 0.1, height + 0.1, depth + 0.1]} position={[0, height / 2, 0]}>
           <meshBasicMaterial color="#3b82f6" wireframe transparent opacity={0.8} />
         </Box>
@@ -1648,6 +1740,28 @@ function FurnitureMesh({ furniture, onContextMenu }: { furniture: any; onContext
       )}
     </group>
   );
+
+  // Render with TransformControls when selected
+  if (isSelected && currentTool === 'select' && groupRef.current) {
+    return (
+      <>
+        {furnitureGroup}
+        <TransformControls
+          ref={transformRef}
+          object={groupRef.current}
+          mode={transformMode}
+          onObjectChange={handleTransformChange}
+          onMouseUp={handleTransformEnd}
+          size={0.75}
+          showX={transformMode !== 'rotate' || true}
+          showY={transformMode === 'translate' ? false : true}
+          showZ={transformMode !== 'rotate' || true}
+        />
+      </>
+    );
+  }
+
+  return furnitureGroup;
 }
 
 // Furniture preview component (while dragging)

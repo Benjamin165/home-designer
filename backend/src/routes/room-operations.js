@@ -102,6 +102,38 @@ router.post('/rooms/merge', async (req, res) => {
     // Delete the second room (walls will cascade delete)
     db.run('DELETE FROM rooms WHERE id = ?', [r2.id]);
 
+    // Delete old walls from first room and recreate them for merged dimensions
+    db.run('DELETE FROM walls WHERE room_id = ?', [r1.id]);
+
+    // Create new walls for the merged room
+    const defaultWallColor = '#e5e7eb';
+    const wallHeight = newCeilingHeight;
+
+    // Front wall (+Z direction)
+    db.run(
+      `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, color)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [r1.id, -newWidth / 2, newDepth / 2, newWidth / 2, newDepth / 2, wallHeight, defaultWallColor]
+    );
+    // Back wall (-Z direction)
+    db.run(
+      `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, color)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [r1.id, -newWidth / 2, -newDepth / 2, newWidth / 2, -newDepth / 2, wallHeight, defaultWallColor]
+    );
+    // Left wall (-X direction)
+    db.run(
+      `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, color)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [r1.id, -newWidth / 2, -newDepth / 2, -newWidth / 2, newDepth / 2, wallHeight, defaultWallColor]
+    );
+    // Right wall (+X direction)
+    db.run(
+      `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, color)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [r1.id, newWidth / 2, -newDepth / 2, newWidth / 2, newDepth / 2, wallHeight, defaultWallColor]
+    );
+
     saveDatabase();
 
     // Get the merged room
@@ -254,6 +286,46 @@ router.post('/rooms/:id/split', async (req, res) => {
         room.ceiling_color,
       ]
     );
+
+    // Get the ID of the newly created room
+    const newRoomResult = db.exec('SELECT id FROM rooms ORDER BY id DESC LIMIT 1');
+    const newRoomId = newRoomResult[0].values[0][0];
+
+    // Delete old walls from original room and recreate them for both rooms
+    db.run('DELETE FROM walls WHERE room_id = ?', [room.id]);
+
+    // Helper to create walls for a room
+    const createWallsForRoom = (roomId, w, d, wallHeight) => {
+      const defaultWallColor = '#e5e7eb';
+      // Front wall (+Z direction)
+      db.run(
+        `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, color)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [roomId, -w / 2, d / 2, w / 2, d / 2, wallHeight, defaultWallColor]
+      );
+      // Back wall (-Z direction)
+      db.run(
+        `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, color)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [roomId, -w / 2, -d / 2, w / 2, -d / 2, wallHeight, defaultWallColor]
+      );
+      // Left wall (-X direction)
+      db.run(
+        `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, color)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [roomId, -w / 2, -d / 2, -w / 2, d / 2, wallHeight, defaultWallColor]
+      );
+      // Right wall (+X direction)
+      db.run(
+        `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, color)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [roomId, w / 2, -d / 2, w / 2, d / 2, wallHeight, defaultWallColor]
+      );
+    };
+
+    // Create walls for both rooms
+    createWallsForRoom(room.id, room1.width, room1.depth, room.ceiling_height);
+    createWallsForRoom(newRoomId, room2.width, room2.depth, room.ceiling_height);
 
     saveDatabase();
 
