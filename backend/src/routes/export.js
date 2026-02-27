@@ -218,4 +218,260 @@ function formatDimensions(width, depth, unitSystem) {
   }
 }
 
+// POST /api/export/materials - Export material list as CSV
+router.post('/materials', async (req, res) => {
+  try {
+    const { projectId } = req.body;
+
+    if (!projectId) {
+      return res.status(400).json({ error: 'Project ID is required' });
+    }
+
+    const db = await getDatabase();
+
+    // Get project
+    const project = queryToObject(db, `SELECT * FROM projects WHERE id = ${projectId}`);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Get all floors, rooms, walls, and furniture
+    const floors = queryToObjects(db, `SELECT * FROM floors WHERE project_id = ${projectId}`);
+    
+    const materials = [];
+    
+    for (const floor of floors) {
+      const rooms = queryToObjects(db, `SELECT * FROM rooms WHERE floor_id = ${floor.id}`);
+      
+      for (const room of rooms) {
+        const dimensions = room.dimensions_json ? JSON.parse(room.dimensions_json) : { width: 0, depth: 0 };
+        const floorArea = (dimensions.width || 0) * (dimensions.depth || 0);
+        const wallArea = 2 * (dimensions.width + dimensions.depth) * (room.ceiling_height || 2.8);
+        
+        // Floor material
+        if (room.floor_material) {
+          materials.push({
+            floor: floor.name || `Floor ${floor.level}`,
+            room: room.name || 'Unnamed Room',
+            element: 'Floor',
+            material: room.floor_material,
+            color: room.floor_color || '',
+            area_sqm: floorArea.toFixed(2),
+            notes: ''
+          });
+        }
+        
+        // Ceiling material
+        if (room.ceiling_material) {
+          materials.push({
+            floor: floor.name || `Floor ${floor.level}`,
+            room: room.name || 'Unnamed Room',
+            element: 'Ceiling',
+            material: room.ceiling_material,
+            color: room.ceiling_color || '',
+            area_sqm: floorArea.toFixed(2),
+            notes: ''
+          });
+        }
+        
+        // Wall materials
+        const walls = queryToObjects(db, `SELECT * FROM walls WHERE room_id = ${room.id}`);
+        for (const wall of walls) {
+          const wallLength = Math.sqrt(
+            Math.pow(wall.end_x - wall.start_x, 2) + 
+            Math.pow(wall.end_y - wall.start_y, 2)
+          );
+          const singleWallArea = wallLength * wall.height;
+          
+          if (wall.material) {
+            materials.push({
+              floor: floor.name || `Floor ${floor.level}`,
+              room: room.name || 'Unnamed Room',
+              element: `Wall`,
+              material: wall.material,
+              color: wall.color || '',
+              area_sqm: singleWallArea.toFixed(2),
+              notes: ''
+            });
+          }
+        }
+        
+        // Furniture
+        const furniture = queryToObjects(db, `
+          SELECT fp.*, a.name as asset_name, a.category
+          FROM furniture_placements fp
+          LEFT JOIN assets a ON fp.asset_id = a.id
+          WHERE fp.room_id = ${room.id}
+        `);
+        
+        for (const item of furniture) {
+          materials.push({
+            floor: floor.name || `Floor ${floor.level}`,
+            room: room.name || 'Unnamed Room',
+            element: 'Furniture',
+            material: item.asset_name || 'Unknown',
+            color: '',
+            area_sqm: '',
+            notes: item.category || ''
+          });
+        }
+      }
+    }
+
+    // Generate CSV
+    const headers = ['Floor', 'Room', 'Element', 'Material', 'Color', 'Area (sqm)', 'Notes'];
+    const csvRows = [headers.join(',')];
+    
+    for (const m of materials) {
+      const row = [
+        `"${m.floor}"`,
+        `"${m.room}"`,
+        `"${m.element}"`,
+        `"${m.material}"`,
+        `"${m.color}"`,
+        m.area_sqm,
+        `"${m.notes}"`
+      ];
+      csvRows.push(row.join(','));
+    }
+    
+    const csv = csvRows.join('\n');
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${project.name.replace(/[^a-z0-9]/gi, '_')}_materials.csv"`);
+    res.send(csv);
+    
+  } catch (error) {
+    console.error('Error exporting materials:', error);
+    res.status(500).json({ error: 'Failed to export materials' });
+  }
+});
+
+// POST /api/export/backup - Export full project as JSON backup
+router.post('/backup', async (req, res) => {
+  try {
+    const { projectId } = req.body;
+
+    if (!projectId) {
+      return res.status(400).json({ error: 'Project ID is required' });
+    }
+
+    const db = await getDatabase();
+
+    // Get project
+    const project = queryToObject(db, `SELECT * FROM projects WHERE id = ${projectId}`);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Get all related data
+    const floors = queryToObjects(db, `SELECT * FROM floors WHERE project_id = ${projectId}`);
+    
+    const backup = {
+      version: '1.0',
+      exportDate: new Date().toISOString(),
+      project: project,
+      floors: []
+    };
+    
+    for (const floor of floors) {
+      const rooms = queryToObjects(db, `SELECT * FROM rooms WHERE floor_id = ${floor.id}`);
+      
+      const floorData = {
+        ...floor,
+        rooms: []
+      };
+      
+      for (const room of rooms) {
+        const walls = queryToObjects(db, `SELECT * FROM walls WHERE room_id = ${room.id}`);
+        const furniture = queryToObjects(db, `SELECT * FROM furniture_placements WHERE room_id = ${room.id}`);
+        const lights = queryToObjects(db, `SELECT * FROM lights WHERE room_id = ${room.id}`);
+        
+        floorData.rooms.push({
+          ...room,
+          dimensions_json: room.dimensions_json ? JSON.parse(room.dimensions_json) : null,
+          walls,
+          furniture,
+          lights
+        });
+      }
+      
+      backup.floors.push(floorData);
+    }
+    
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${project.name.replace(/[^a-z0-9]/gi, '_')}_backup.json"`);
+    res.json(backup);
+    
+  } catch (error) {
+    console.error('Error exporting backup:', error);
+    res.status(500).json({ error: 'Failed to export backup' });
+  }
+});
+
+// GET /api/export/summary/:projectId - Get project summary stats
+router.get('/summary/:projectId', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    const db = await getDatabase();
+
+    const project = queryToObject(db, `SELECT * FROM projects WHERE id = ${projectId}`);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Count all entities
+    const floors = queryToObjects(db, `SELECT * FROM floors WHERE project_id = ${projectId}`);
+    let totalRooms = 0;
+    let totalWalls = 0;
+    let totalFurniture = 0;
+    let totalLights = 0;
+    let totalFloorArea = 0;
+    
+    for (const floor of floors) {
+      const rooms = queryToObjects(db, `SELECT * FROM rooms WHERE floor_id = ${floor.id}`);
+      totalRooms += rooms.length;
+      
+      for (const room of rooms) {
+        const walls = queryToObjects(db, `SELECT COUNT(*) as count FROM walls WHERE room_id = ${room.id}`);
+        totalWalls += walls[0]?.count || 0;
+        
+        const furniture = queryToObjects(db, `SELECT COUNT(*) as count FROM furniture_placements WHERE room_id = ${room.id}`);
+        totalFurniture += furniture[0]?.count || 0;
+        
+        const lights = queryToObjects(db, `SELECT COUNT(*) as count FROM lights WHERE room_id = ${room.id}`);
+        totalLights += lights[0]?.count || 0;
+        
+        const dimensions = room.dimensions_json ? JSON.parse(room.dimensions_json) : { width: 0, depth: 0 };
+        totalFloorArea += (dimensions.width || 0) * (dimensions.depth || 0);
+      }
+    }
+    
+    res.json({
+      project: {
+        id: project.id,
+        name: project.name,
+        createdAt: project.created_at,
+        updatedAt: project.updated_at
+      },
+      statistics: {
+        floors: floors.length,
+        rooms: totalRooms,
+        walls: totalWalls,
+        furniture: totalFurniture,
+        lights: totalLights,
+        totalFloorArea: {
+          sqm: totalFloorArea.toFixed(2),
+          sqft: (totalFloorArea * 10.764).toFixed(2)
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error getting summary:', error);
+    res.status(500).json({ error: 'Failed to get project summary' });
+  }
+});
+
 export default router;
