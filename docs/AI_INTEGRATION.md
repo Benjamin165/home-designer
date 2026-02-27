@@ -22,17 +22,17 @@ Home Designer includes several AI-powered features to accelerate the design proc
 
 | Feature | Status | Backend Route | Frontend Component |
 |---------|--------|---------------|-------------------|
-| **Photo-to-Furniture** | ✅ Partially Implemented | `POST /api/ai/generate-from-photo` | `AIGenerationModal.tsx` |
+| **Photo-to-Furniture** | ✅ Implemented | `POST /api/ai/generate-from-photo` | `AIGenerationModal.tsx` |
 | **Product URL Scraping** | ✅ Implemented | `POST /api/ai/url-import` | `URLImportModal.tsx` |
-| **Generation History** | ✅ Implemented | `GET /api/ai/generation/:id` | - |
-| **Photo-to-Room** | 🔨 Planned | - | - |
-| **Floor Plan Processing** | 🔨 Planned | - | - |
-| **Before/After Comparison** | 🔨 Planned | - | - |
+| **Photo-to-Room** | ✅ Implemented | `POST /api/ai/analyze-room` | `PhotoToRoomModal.tsx` |
+| **Generation History** | ✅ Implemented | `GET /api/ai/generations` | `AIHistoryModal.tsx` |
+| **Before/After Comparison** | ✅ Implemented | - | `BeforeAfterComparison.tsx` |
+| **Floor Plan Processing** | ✅ Implemented | `POST /api/floors/:id/floorplan/trace` | `FloorPlanOverlay.tsx` |
 
 **Legend:**
-- ✅ Implemented: Feature is functional with placeholder/mock implementations
+- ✅ Implemented: Feature is functional and ready for use
+- ⚠️ Partial: Works but requires external API key configuration
 - 🔨 Planned: Database schema exists but implementation is pending
-- ❌ Not Started: No implementation yet
 
 ### Current Implementation Status
 
@@ -40,11 +40,14 @@ Home Designer includes several AI-powered features to accelerate the design proc
 - ✅ Product URL scraping (Puppeteer + Cheerio)
 - ✅ Image dimension estimation
 - ✅ Generation lifecycle tracking
+- ✅ Photo-to-Room AI (Claude Vision API)
+- ✅ AI Generation History UI
+- ✅ Before/After Comparison (slider + side-by-side)
+- ✅ Floor plan tracing with scale calibration
 
-**Placeholder/Mock:**
-- ⚠️ TRELLIS API integration (simulated delay, fake model generation)
-- ⚠️ Photo-to-room reconstruction (not implemented)
-- ⚠️ Floor plan processing (not implemented)
+**Requires API Key:**
+- ⚠️ TRELLIS API integration (HuggingFace or Replicate endpoints)
+- ⚠️ Photo-to-Room AI (requires Anthropic API key)
 
 ---
 
@@ -304,158 +307,224 @@ const trellisOptions = {
 
 **Goal:** Upload a photo of an existing room → Automatically generate 3D room structure with estimated dimensions, wall positions, windows, and doors.
 
-**Current Status:** ❌ Not Implemented (database schema exists)
+**Current Status:** ✅ Implemented using Claude Vision API
 
-### Planned Pipeline
+### Implementation Pipeline
 
 ```
 1. User uploads room photo
    ↓
-2. Send to room reconstruction AI service
+2. Photo saved to assets/uploads/
    ↓
-3. AI detects:
-   - Wall positions and orientations
-   - Floor boundaries
-   - Ceiling height
+3. Send to Claude Vision API for analysis
+   ↓
+4. AI detects:
+   - Room type (living room, bedroom, kitchen, etc.)
+   - Wall positions and materials
+   - Floor material and boundaries
+   - Ceiling height estimation
    - Windows and door locations
-   - Room dimensions (scale estimation)
+   - Room dimensions (using furniture as scale reference)
+   - Existing furnishings
    ↓
-4. Convert AI output to Room + Wall records
+5. Display analysis results with adjustment UI
    ↓
-5. Create room in editor with reconstructed structure
+6. User can refine dimensions before creating
    ↓
-6. User can refine dimensions and adjust layout
+7. Create Room + Walls in database
+   ↓
+8. Room appears in 3D editor
 ```
 
-### AI Service Requirements
+### AI Service: Claude Vision API
 
-**Input:** Single RGB image (JPEG/PNG)
+**Service:** `backend/src/services/room-vision.js`
 
-**Output (JSON):**
+**Input:** Single RGB image (JPEG/PNG/WebP, max 20MB)
+
+**Analysis Output (JSON):**
 
 ```json
 {
-  "room": {
+  "roomType": "living_room",
+  "confidence": 0.87,
+  "estimatedDimensions": {
     "width": 5.2,
     "depth": 4.1,
-    "ceiling_height": 2.7,
-    "floor_type": "hardwood",
-    "wall_color": "#F5F5DC"
+    "height": 2.7
   },
   "walls": [
     {
-      "start": { "x": 0, "y": 0 },
-      "end": { "x": 5.2, "y": 0 },
-      "height": 2.7,
-      "has_window": true,
-      "window_position": 2.5
+      "position": "front",
+      "features": ["window"],
+      "material": "paint"
     },
     {
-      "start": { "x": 5.2, "y": 0 },
-      "end": { "x": 5.2, "y": 4.1 },
-      "height": 2.7,
-      "has_window": false
-    },
-    // ... more walls
+      "position": "left",
+      "features": ["door"],
+      "material": "paint"
+    }
   ],
   "windows": [
-    { "wall_index": 0, "position": 2.5, "width": 1.2, "height": 1.5 }
+    {
+      "wall": "front",
+      "estimatedWidth": 1.5,
+      "estimatedHeight": 1.2,
+      "type": "standard"
+    }
   ],
   "doors": [
-    { "wall_index": 1, "position": 0.5, "width": 0.9, "height": 2.0 }
+    {
+      "wall": "left",
+      "type": "standard"
+    }
   ],
-  "confidence": 0.87
+  "floorMaterial": "hardwood",
+  "lightingSources": ["natural", "ceiling"],
+  "furnishings": [
+    {
+      "type": "sofa",
+      "estimatedSize": { "width": 2.0, "depth": 0.9, "height": 0.8 }
+    }
+  ],
+  "notes": "Modern living room with large windows facing south"
 }
 ```
 
-### Implementation Strategy
+### Backend Implementation
 
-**Backend Route:**
+**API Endpoints:**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/ai/room-vision/status` | GET | Check if Anthropic API key is configured |
+| `/api/ai/analyze-room` | POST | Upload photo and get AI analysis |
+| `/api/ai/create-room-from-analysis` | POST | Create room from analysis with adjustments |
+
+**Room Analysis Route** (`ai.js`):
 
 ```javascript
-// backend/src/routes/ai.js
-router.post('/photo-to-room', upload.single('photo'), async (req, res) => {
+router.post('/analyze-room', upload.single('photo'), async (req, res) => {
+  const { floorId } = req.body;
   const imagePath = `/assets/uploads/${req.file.filename}`;
 
-  // Call room reconstruction AI service
-  const reconstructionData = await callRoomReconstructionApi(imagePath);
+  // Create generation record
+  db.run(
+    `INSERT INTO ai_generations (type, input_image_path, status, created_at)
+     VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
+    ['photo_to_room', imagePath, 'processing']
+  );
 
-  // Create room in specified floor
-  const { floorId } = req.body;
-  const room = createRoomFromReconstruction(db, floorId, reconstructionData);
+  // Get Anthropic API key
+  const apiKey = await getAnthropicApiKey();
 
-  // Create walls
-  reconstructionData.walls.forEach(wall => {
-    createWallFromData(db, room.id, wall);
-  });
+  // Analyze with Claude Vision
+  const analysis = await analyzeRoomPhoto(imagePath, apiKey);
+
+  // Convert to room data structure
+  const roomData = analysisToRoomData(analysis, floorId);
 
   res.json({
-    message: 'Room reconstructed from photo',
-    room,
-    confidence: reconstructionData.confidence
+    success: true,
+    analysis,
+    roomData,
+    imagePath,
+    message: `Detected ${roomData.name} (${analysis.confidence * 100}% confidence)`
   });
 });
 ```
 
-**Frontend Flow:**
-
-1. User clicks "Generate from Photo" in Editor
-2. Upload modal opens
-3. User selects room photo
-4. Show progress: "Analyzing room structure..."
-5. Display reconstructed room in preview
-6. Allow user to adjust dimensions before confirming
-7. Insert room into current floor
-
-### Candidate AI Services
-
-**Option 1: Custom Model (LayoutNet, HorizonNet)**
-- Train on indoor scene datasets (SUN360, Matterport3D)
-- Estimate room layout from single image
-- Output wall positions, ceiling height
-
-**Option 2: Commercial API (Hypothetical)**
-- Google Cloud Vision API (limited for this use case)
-- Custom-trained model on Vertex AI
-- Third-party services (Matterport, Cupix)
-
-**Option 3: Fallback: Manual Tracing**
-- Show photo as background overlay in top-down view
-- User manually traces walls over the photo
-- Semi-automated: Snap detected lines to walls
-
-### Database Integration
-
-**Mapping AI Output to Schema:**
+**Claude Vision Analysis** (`room-vision.js`):
 
 ```javascript
-function createRoomFromReconstruction(db, floorId, reconstruction) {
-  const { width, depth, ceiling_height } = reconstruction.room;
+export async function analyzeRoomPhoto(imagePath, apiKey) {
+  const client = new Anthropic({ apiKey });
 
-  db.run(
-    `INSERT INTO rooms (
-      floor_id, name, dimensions_json,
-      position_x, position_y, position_z,
-      floor_material, floor_color,
-      ceiling_height, ceiling_color,
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-    [
-      floorId,
-      'Reconstructed Room',
-      JSON.stringify({ width, depth }),
-      0, 0, 0, // Position at origin
-      'hardwood', // Default or from reconstruction
-      '#F5F5DC',  // Default or from reconstruction
-      ceiling_height,
-      '#FFFFFF',
-    ]
-  );
+  // Read and encode image
+  const imageBuffer = readFileSync(fullPath);
+  const base64Image = imageBuffer.toString('base64');
 
-  const roomId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
-  return { id: roomId, width, depth, ceiling_height };
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 2000,
+    messages: [{
+      role: 'user',
+      content: [
+        {
+          type: 'image',
+          source: { type: 'base64', media_type: 'image/jpeg', data: base64Image }
+        },
+        {
+          type: 'text',
+          text: `Analyze this room photo and provide JSON with:
+                 roomType, confidence, estimatedDimensions, walls, windows,
+                 doors, floorMaterial, lightingSources, furnishings, notes`
+        }
+      ]
+    }]
+  });
+
+  return JSON.parse(response.content[0].text);
 }
 ```
+
+### Frontend Implementation
+
+**Component:** `frontend/src/components/PhotoToRoomModal.tsx`
+
+**Features:**
+- Image upload with drag-and-drop support
+- API status check (warns if Anthropic key not configured)
+- Analysis progress indicator
+- Results preview with room type icon and confidence score
+- Editable dimension fields (width, depth, ceiling height)
+- Floor material selection
+- AI notes display
+- Detected furniture list
+
+**State Flow:**
+
+```
+idle → uploading → analyzing → preview → creating → success
+                                  ↓
+                               error (with retry)
+```
+
+**Usage in Editor:**
+1. Click Camera icon in AI toolbar section
+2. Upload room photo
+3. Wait for Claude Vision analysis (~5-10 seconds)
+4. Review and adjust dimensions
+5. Click "Create Room"
+6. Room + walls appear in 3D scene
+
+### Configuration
+
+**Required:** Anthropic API key in Settings → AI API Keys tab
+
+**Settings Storage:**
+
+```javascript
+// Encrypted in user_settings table
+{
+  key: 'anthropic_api_key',
+  value: '<encrypted>',
+  encrypted: 1
+}
+```
+
+### Dimension Estimation
+
+Claude Vision uses visual cues to estimate room dimensions:
+
+- **Furniture as reference:** Standard sofa (~2m), door (~0.9m wide, ~2.1m tall)
+- **Perspective analysis:** Distance into room based on vanishing points
+- **Ceiling height:** Typically 2.4-3.0m for residential rooms
+
+**User Adjustments:**
+- All dimensions can be manually adjusted before room creation
+- Floor material can be changed
+- Room name can be customized
 
 ---
 
@@ -1067,188 +1136,130 @@ router.get('/generations', async (req, res) => {
 
 ### Overview
 
-**Goal:** After designing a room, generate a photo-realistic render from the same camera angle as an original room photo for before/after comparison.
+**Goal:** Compare an original room photo with the 3D render from the same or similar camera angle.
 
-**Current Status:** ❌ Not Implemented
+**Current Status:** ✅ Implemented
 
-### Workflow
+### Features
 
-```
-1. User uploads original room photo
-   ↓
-2. Extract camera intrinsics and extrinsics
-   ↓
-3. Design room in 3D editor
-   ↓
-4. Click "Generate Before/After"
-   ↓
-5. Position 3D camera to match original photo angle
-   ↓
-6. Render high-quality image from matched angle
-   ↓
-7. Display side-by-side or slider comparison
-```
+**Component:** `frontend/src/components/BeforeAfterComparison.tsx`
 
-### Camera Matching
+**View Modes:**
+1. **Slider View:** Drag handle to reveal before/after images
+2. **Side-by-Side View:** Photos displayed next to each other
 
-**Challenge:** Estimate camera position/rotation from single photo
+**Capabilities:**
+- Capture current viewport as "after" image
+- Recapture button to update the render
+- Download combined comparison image
+- Switch between view modes
 
-**Solution 1: Manual Alignment**
-- User adjusts 3D camera to visually match photo
-- Save camera transform
+### Implementation
 
-**Solution 2: SLAM/SfM (Structure from Motion)**
-- Use COLMAP or OpenCV to estimate camera pose
-- Requires camera calibration data (focal length, distortion)
+**Props Interface:**
 
-**Solution 3: AI-Powered Pose Estimation**
-- Train model to estimate camera pose from room photo
-- Output: position (x, y, z), rotation (yaw, pitch, roll), FOV
-
-**Camera Transform Storage:**
-
-```sql
-CREATE TABLE camera_poses (
-  id INTEGER PRIMARY KEY,
-  project_id INTEGER,
-  original_photo_path TEXT,
-  position_x REAL,
-  position_y REAL,
-  position_z REAL,
-  rotation_x REAL,
-  rotation_y REAL,
-  rotation_z REAL,
-  fov REAL,
-  created_at DATETIME,
-  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-);
+```typescript
+interface BeforeAfterComparisonProps {
+  isOpen: boolean;
+  onClose: () => void;
+  beforeImage: string;           // URL to original photo
+  afterCanvas?: HTMLCanvasElement; // Reference to 3D viewport canvas
+  onCapture?: () => Promise<string>; // Function to capture viewport as data URL
+}
 ```
 
-### High-Quality Render Generation
-
-**Backend Route:**
-
-```javascript
-// POST /api/export/before-after-render
-router.post('/before-after-render', async (req, res) => {
-  const { projectId, cameraTransform, width = 1920, height = 1080 } = req.body;
-
-  // 1. Load project scene data
-  const sceneData = await loadProjectScene(projectId);
-
-  // 2. Set up headless Three.js renderer
-  const renderer = new THREE.WebGLRenderer({
-    width,
-    height,
-    antialias: true,
-  });
-  renderer.setSize(width, height);
-
-  // 3. Create scene with all rooms, furniture, lighting
-  const scene = buildThreeScene(sceneData);
-
-  // 4. Position camera to match original photo
-  const camera = new THREE.PerspectiveCamera(
-    cameraTransform.fov,
-    width / height,
-    0.1,
-    1000
-  );
-  camera.position.set(
-    cameraTransform.position.x,
-    cameraTransform.position.y,
-    cameraTransform.position.z
-  );
-  camera.rotation.set(
-    cameraTransform.rotation.x,
-    cameraTransform.rotation.y,
-    cameraTransform.rotation.z
-  );
-
-  // 5. Render to image
-  renderer.render(scene, camera);
-
-  // 6. Save image
-  const canvas = renderer.domElement;
-  const buffer = canvas.toBuffer('image/png');
-  const filename = `render-${Date.now()}.png`;
-  const filepath = `/assets/renders/${filename}`;
-
-  fs.writeFileSync(join(__dirname, '../../..', filepath), buffer);
-
-  res.json({
-    message: 'Render generated',
-    renderPath: filepath
-  });
-});
-```
-
-**Note:** Three.js headless rendering requires `canvas` npm package (node-canvas).
-
-### Comparison UI
-
-**Side-by-Side View:**
+**Slider View Implementation:**
 
 ```tsx
-<div className="flex gap-4">
-  <div className="flex-1">
-    <h3>Before (Original Photo)</h3>
-    <img src={originalPhotoPath} alt="Before" />
+<div
+  ref={containerRef}
+  className="relative w-full aspect-video cursor-ew-resize"
+  onMouseMove={handleMouseMove}
+  onMouseUp={handleMouseUp}
+>
+  {/* Before Image (Full width) */}
+  <div className="absolute inset-0">
+    <img src={beforeImage} alt="Before" className="w-full h-full object-cover" />
   </div>
-  <div className="flex-1">
-    <h3>After (3D Render)</h3>
-    <img src={renderPath} alt="After" />
+
+  {/* After Image (Clipped to right of slider) */}
+  <div
+    className="absolute inset-0 overflow-hidden"
+    style={{ clipPath: `inset(0 0 0 ${sliderPosition}%)` }}
+  >
+    <img src={afterImage} alt="After" className="w-full h-full object-cover" />
+  </div>
+
+  {/* Slider Handle */}
+  <div
+    className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize"
+    style={{ left: `${sliderPosition}%` }}
+    onMouseDown={handleMouseDown}
+  >
+    <div className="absolute top-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full" />
   </div>
 </div>
 ```
 
-**Slider Comparison:**
+**Side-by-Side View:**
 
 ```tsx
-import ReactCompareSlider from 'react-compare-slider';
-
-<ReactCompareSlider
-  itemOne={<img src={originalPhotoPath} alt="Before" />}
-  itemTwo={<img src={renderPath} alt="After" />}
-  position={50} // Initial slider position (%)
-/>
+<div className="grid grid-cols-2 gap-4">
+  <div className="relative aspect-video">
+    <img src={beforeImage} alt="Before" />
+    <div className="absolute top-4 left-4 bg-black/50 px-3 py-1 rounded">Before</div>
+  </div>
+  <div className="relative aspect-video">
+    <img src={afterImage} alt="After" />
+    <div className="absolute top-4 left-4 bg-black/50 px-3 py-1 rounded">After</div>
+  </div>
+</div>
 ```
 
-**Export Comparison:**
+**Download Combined Image:**
 
-```javascript
-// POST /api/export/before-after-image
-router.post('/before-after-image', async (req, res) => {
-  const { originalPhotoPath, renderPath, layout = 'side-by-side' } = req.body;
+```typescript
+const handleDownload = () => {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
 
-  // Use Sharp or Canvas to composite images
-  const sharp = require('sharp');
+  // Draw before and after side by side
+  canvas.width = beforeImg.width * 2 + 20;
+  canvas.height = beforeImg.height;
 
-  if (layout === 'side-by-side') {
-    const [before, after] = await Promise.all([
-      sharp(originalPhotoPath).toBuffer(),
-      sharp(renderPath).toBuffer()
-    ]);
+  ctx.drawImage(beforeImg, 0, 0);
+  ctx.drawImage(afterImg, beforeImg.width + 20, 0);
 
-    const composite = await sharp({
-      create: {
-        width: 1920 * 2,
-        height: 1080,
-        channels: 3,
-        background: { r: 0, g: 0, b: 0 }
-      }
-    })
-    .composite([
-      { input: before, left: 0, top: 0 },
-      { input: after, left: 1920, top: 0 }
-    ])
-    .png()
-    .toFile('/assets/exports/before-after.png');
+  // Add labels
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(10, 10, 80, 30);
+  ctx.fillStyle = 'white';
+  ctx.fillText('Before', 25, 32);
+  ctx.fillText('After', beforeImg.width + 45, 32);
 
-    res.json({ exportPath: '/assets/exports/before-after.png' });
-  }
-});
+  // Trigger download
+  const link = document.createElement('a');
+  link.download = `before-after-${Date.now()}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+};
 ```
+
+### Usage
+
+**Typical Flow:**
+1. User uploads room photo via Photo-to-Room feature
+2. Room is created in 3D editor
+3. User adds furniture and makes design changes
+4. User opens Before/After comparison
+5. Original photo shown on left, current 3D view on right
+6. Drag slider to compare changes
+7. Optionally download combined image for sharing
+
+**Future Enhancements:**
+- Camera pose estimation to automatically match photo angle
+- High-quality render export (not just viewport capture)
+- Animated transition between views
 
 ---
 
@@ -1745,12 +1756,13 @@ await fetch('/api/ai/generate-from-photo', {
 
 | Feature | Backend | Frontend | Production-Ready? |
 |---------|---------|----------|-------------------|
-| **TRELLIS Photo-to-3D** | ⚠️ Placeholder | ✅ UI Ready | ❌ API Integration Needed |
+| **TRELLIS Photo-to-3D** | ✅ Service Ready | ✅ UI Ready | ⚠️ Needs API Key |
 | **Product URL Scraping** | ✅ Functional | ✅ Full Flow | ✅ Yes |
 | **Dimension Estimation** | ✅ Regex Patterns | ✅ Manual Override | ✅ Yes |
-| **Photo-to-Room** | ❌ Not Implemented | ❌ Not Implemented | ❌ No |
-| **Floor Plan Processing** | ❌ Not Implemented | ❌ Not Implemented | ❌ No |
-| **Before/After** | ❌ Not Implemented | ❌ Not Implemented | ❌ No |
+| **Photo-to-Room** | ✅ Claude Vision | ✅ Full Flow | ⚠️ Needs Anthropic API Key |
+| **AI Generation History** | ✅ Full CRUD | ✅ Filter/Paginate | ✅ Yes |
+| **Before/After Comparison** | N/A | ✅ Slider + Side-by-Side | ✅ Yes |
+| **Floor Plan Processing** | ✅ Scale + Trace | ✅ Overlay UI | ✅ Yes |
 
 ### Architecture Highlights
 
@@ -1759,16 +1771,42 @@ await fetch('/api/ai/generate-from-photo', {
 3. **Extensible Design**: Adapter pattern ready for multiple AI providers
 4. **Graceful Degradation**: Fallback flows when AI services fail
 5. **Mock Support**: Development mode with simulated AI responses
+6. **Claude Vision Integration**: Room analysis using Anthropic's vision model
+7. **Real-time UI Feedback**: Progress indicators and status updates
 
-### Next Steps for Full Implementation
+### Recent Implementations (2026-02-27)
 
-1. **Integrate Real TRELLIS API**: Replace placeholder with actual API calls
-2. **Add Progress Polling**: Long-running generations need status updates
-3. **Implement Retry Logic**: Allow users to retry failed generations
-4. **Add Generation History UI**: Show past AI generations
-5. **Photo-to-Room Service**: Integrate room reconstruction AI
-6. **Floor Plan Parser**: Implement wall detection and room segmentation
-7. **Before/After Rendering**: Add camera matching and comparison UI
-8. **Quality Settings**: Allow users to configure AI generation quality vs speed
+1. ✅ **Photo-to-Room AI** (`PhotoToRoomModal.tsx`, `room-vision.js`)
+   - Upload room photo → Claude Vision analyzes → Room created with walls
+   - Dimension estimation using furniture as scale reference
+   - User can adjust all values before creating
 
-**Recommendation:** Start with completing TRELLIS integration as it's the most user-visible and valuable AI feature.
+2. ✅ **AI Generation History** (`AIHistoryModal.tsx`)
+   - View all AI operations with filters (type, status)
+   - Pagination for large histories
+   - Delete old records
+
+3. ✅ **Before/After Comparison** (`BeforeAfterComparison.tsx`)
+   - Slider view with draggable handle
+   - Side-by-side view
+   - Download combined comparison image
+
+4. ✅ **Placeholder GLB Model** (`assets/models/placeholder.glb`)
+   - Default cube model for TRELLIS fallback
+   - Auto-generated via `scripts/create-placeholder.js`
+
+### Next Steps
+
+1. **TRELLIS API Key Configuration**: Guide users to obtain API keys
+2. **High-Quality Render Export**: Server-side rendering for comparisons
+3. **Camera Pose Estimation**: Auto-match photo angles for better comparisons
+4. **Quality Settings UI**: Let users choose generation quality vs speed
+5. **Batch Processing**: Generate multiple items at once
+
+### Required API Keys
+
+| Feature | API Key | Settings Location |
+|---------|---------|-------------------|
+| Photo-to-Room | Anthropic | Settings → AI API Keys → Anthropic |
+| Photo-to-Furniture | TRELLIS (HuggingFace/Replicate) | Settings → AI API Keys → TRELLIS |
+| URL Scraping | None (uses Puppeteer) | N/A |

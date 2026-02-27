@@ -24,6 +24,10 @@ This document tracks features and improvements implemented in the Home Designer 
 | - | Procedural Textures | ✅ | `f7e8991` |
 | - | Polygon Room Support | ✅ | `a77a10e` |
 | - | IKEA Furniture Integration | ✅ | `9ce2d1a` |
+| - | Photo-to-Room AI (Claude Vision) | ✅ | `33d3e01` |
+| - | AI Generation History UI | ✅ | `33d3e01` |
+| - | Before/After Comparison | ✅ | `33d3e01` |
+| - | Placeholder GLB Model | ✅ | `8e90686` |
 
 ---
 
@@ -213,6 +217,79 @@ This document tracks features and improvements implemented in the Home Designer 
 - `backend/src/services/ikea.js`
 - `backend/src/routes/ikea.js`
 - `frontend/src/components/IKEABrowser.tsx`
+
+---
+
+## AI Features Enhancement (2026-02-27) ✅
+
+### Photo-to-Room AI
+Upload a room photo and let Claude Vision analyze it to create a 3D room with estimated dimensions.
+
+**Features:**
+- Image upload with validation (JPEG/PNG/WebP, max 20MB)
+- Claude Vision API integration for room analysis
+- Detects: room type, dimensions, walls, windows, doors, floor material
+- Confidence score display
+- Adjustable dimensions before creation
+- Automatic wall generation
+
+**Files Created:**
+- `backend/src/services/room-vision.js` - Claude Vision integration
+- `frontend/src/components/PhotoToRoomModal.tsx` - Upload and preview UI
+
+**Files Modified:**
+- `backend/src/routes/ai.js` - New endpoints for room analysis
+- `frontend/src/lib/api.ts` - API methods for room analysis
+- `frontend/src/components/Editor.tsx` - AI toolbar integration
+
+**API Endpoints:**
+- `GET /api/ai/room-vision/status` - Check Anthropic API key configured
+- `POST /api/ai/analyze-room` - Analyze room photo
+- `POST /api/ai/create-room-from-analysis` - Create room from analysis
+
+### AI Generation History
+View and manage all AI operations (photo-to-furniture, photo-to-room, URL import).
+
+**Features:**
+- List all generations with pagination
+- Filter by type (Photo→Furniture, Photo→Room, URL Import)
+- Filter by status (Completed, Failed, Processing)
+- Delete old records
+- Preview thumbnails for input images
+
+**Files Created:**
+- `frontend/src/components/AIHistoryModal.tsx`
+
+**API Endpoints:**
+- `GET /api/ai/generations` - List generations with filters
+- `DELETE /api/ai/generations/:id` - Delete a generation
+
+### Before/After Comparison
+Compare original room photos with 3D renders using slider or side-by-side views.
+
+**Features:**
+- Slider view with draggable handle
+- Side-by-side view
+- Capture current viewport as "after" image
+- Recapture button
+- Download combined comparison image
+
+**Files Created:**
+- `frontend/src/components/BeforeAfterComparison.tsx`
+
+### Placeholder GLB Model
+Default cube model for TRELLIS fallback when API is unavailable.
+
+**Files Created:**
+- `assets/models/placeholder.glb` - Simple cube GLB
+- `scripts/create-placeholder.js` - Generation script
+
+### UI Integration
+New AI toolbar section in Editor with purple gradient styling.
+
+**Toolbar Buttons:**
+- 📷 Camera icon → Photo to Room modal
+- 📜 History icon → AI Generation History modal
 
 ---
 
