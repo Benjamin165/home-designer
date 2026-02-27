@@ -32,6 +32,7 @@ import {
   Loader2,
   Grid3x3,
   Lightbulb,
+  User,
 } from 'lucide-react';
 
 interface Project {

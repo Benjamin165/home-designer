@@ -6,6 +6,7 @@ import { useEditorStore } from '../store/editorStore';
 import { furnitureApi, roomsApi, wallsApi, lightsApi } from '../lib/api';
 import { WallMesh } from './WallMesh';
 import { LightMesh } from './LightMesh';
+import { FirstPersonControls, FirstPersonOverlay } from './FirstPersonControls';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { Sun, Moon } from 'lucide-react';
@@ -875,14 +876,25 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
       )}
 
       {/* Camera controls */}
-      <OrbitControls
-        ref={controlsRef}
-        makeDefault
-        enabled={currentTool !== 'draw-wall'}
-        maxPolarAngle={Math.PI / 2.2}
-        minDistance={2}
-        maxDistance={50}
-      />
+      {currentTool === 'first-person' ? (
+        <FirstPersonControls
+          enabled={true}
+          rooms={rooms}
+          onExit={() => {
+            // Dispatch event to exit first person mode
+            window.dispatchEvent(new CustomEvent('exitFirstPerson'));
+          }}
+        />
+      ) : (
+        <OrbitControls
+          ref={controlsRef}
+          makeDefault
+          enabled={currentTool !== 'draw-wall'}
+          maxPolarAngle={Math.PI / 2.2}
+          minDistance={2}
+          maxDistance={50}
+        />
+      )}
     </>
   );
 }
@@ -1657,12 +1669,23 @@ export default function Viewport3D({ onOpenSettings }: Viewport3DProps = {}) {
   const draggingAsset = useEditorStore((state) => state.draggingAsset);
   const currentFloorId = useEditorStore((state) => state.currentFloorId);
   const rooms = useEditorStore((state) => state.rooms);
+  const currentTool = useEditorStore((state) => state.currentTool);
+  const setCurrentTool = useEditorStore((state) => state.setCurrentTool);
   const addFurniturePlacement = useEditorStore((state) => state.addFurniturePlacement);
   const removeFurniturePlacement = useEditorStore((state) => state.removeFurniturePlacement);
   const setSelectedRoomId = useEditorStore((state) => state.setSelectedRoomId);
   const lightingMode = useEditorStore((state) => state.lightingMode);
   const setLightingMode = useEditorStore((state) => state.setLightingMode);
   const addAction = useEditorStore((state) => state.addAction);
+
+  // Listen for exit first-person mode event
+  useEffect(() => {
+    const handleExitFirstPerson = () => {
+      setCurrentTool('select');
+    };
+    window.addEventListener('exitFirstPerson', handleExitFirstPerson);
+    return () => window.removeEventListener('exitFirstPerson', handleExitFirstPerson);
+  }, [setCurrentTool]);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -2089,6 +2112,11 @@ export default function Viewport3D({ onOpenSettings }: Viewport3DProps = {}) {
           y={roomTooltip.y}
           room={roomTooltip.room}
         />
+      )}
+
+      {/* First-person mode overlay */}
+      {currentTool === 'first-person' && (
+        <FirstPersonOverlay onExit={() => setCurrentTool('select')} />
       )}
     </div>
   );
