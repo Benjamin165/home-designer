@@ -1,7 +1,7 @@
 import { useEditorStore } from '../store/editorStore';
 import { X, ChevronRight, ChevronLeft, Trash2, RotateCw } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { roomsApi, furnitureApi, wallsApi, lightsApi } from '../lib/api';
+import { roomsApi, furnitureApi, wallsApi, lightsApi, roomOperationsApi } from '../lib/api';
 import { toast } from 'sonner';
 import DeleteRoomDialog from './DeleteRoomDialog';
 import { formatLength, formatArea } from '../lib/units';
@@ -1085,6 +1085,57 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
                         {selectedRoom.ceiling_color || '#f3f4f6'}
                       </span>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Room Operations */}
+              <div className="pt-4 border-t border-gray-700">
+                <label className="block text-sm font-medium text-gray-400 mb-3">
+                  🔧 Room Operations
+                </label>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const result = await roomOperationsApi.split(selectedRoom.id, 'x', 0.5);
+                          if (result.success) {
+                            toast.success('Room split vertically');
+                            // Refresh rooms
+                            const roomsData = await roomsApi.getByFloor(selectedRoom.floor_id);
+                            const setRooms = useEditorStore.getState().setRooms;
+                            setRooms(roomsData.rooms);
+                          }
+                        } catch (error) {
+                          console.error('Error splitting room:', error);
+                          toast.error('Failed to split room');
+                        }
+                      }}
+                      className="px-3 py-2 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded transition-colors"
+                    >
+                      Split ↔ (L/R)
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const result = await roomOperationsApi.split(selectedRoom.id, 'z', 0.5);
+                          if (result.success) {
+                            toast.success('Room split horizontally');
+                            // Refresh rooms
+                            const roomsData = await roomsApi.getByFloor(selectedRoom.floor_id);
+                            const setRooms = useEditorStore.getState().setRooms;
+                            setRooms(roomsData.rooms);
+                          }
+                        } catch (error) {
+                          console.error('Error splitting room:', error);
+                          toast.error('Failed to split room');
+                        }
+                      }}
+                      className="px-3 py-2 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded transition-colors"
+                    >
+                      Split ↕ (F/B)
+                    </button>
                   </div>
                 </div>
               </div>

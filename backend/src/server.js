@@ -14,6 +14,7 @@ import aiRouter from './routes/ai.js';
 import exportRouter from './routes/export.js';
 import lightsRouter from './routes/lights.js';
 import floorplansRouter from './routes/floorplans.js';
+import roomOperationsRouter from './routes/room-operations.js';
 import { resetDatabase } from './db/connection.js';
 
 dotenv.config();
@@ -216,6 +217,7 @@ app.use('/api', wallsRouter); // Handles /api/rooms/:roomId/walls and /api/walls
 app.use('/api', furnitureRouter); // Handles /api/rooms/:roomId/furniture and /api/furniture/:id
 app.use('/api', lightsRouter); // Handles /api/rooms/:roomId/lights and /api/lights/:id
 app.use('/api', floorplansRouter); // Handles /api/floors/:floorId/floorplan
+app.use('/api', roomOperationsRouter); // Handles /api/rooms/merge, /api/rooms/:id/split
 app.use('/api', settingsRouter); // Handles /api/settings
 app.use('/api/ai', aiRouter); // Handles /api/ai/*
 app.use('/api/export', exportRouter); // Handles /api/export/*

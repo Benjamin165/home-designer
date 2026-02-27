@@ -352,6 +352,33 @@ export const healthApi = {
 };
 
 // Lights API methods
+// Room Operations API
+export const roomOperationsApi = {
+  async merge(roomIds: number[]) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/rooms/merge`, {
+      method: 'POST',
+      body: JSON.stringify({ roomIds }),
+    });
+    return response.json();
+  },
+
+  async split(roomId: number, axis: 'x' | 'z', position: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/rooms/${roomId}/split`, {
+      method: 'POST',
+      body: JSON.stringify({ axis, position }),
+    });
+    return response.json();
+  },
+
+  async setWallThickness(roomId: number, thickness: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/rooms/${roomId}/wall-thickness`, {
+      method: 'PUT',
+      body: JSON.stringify({ thickness }),
+    });
+    return response.json();
+  },
+};
+
 export const lightsApi = {
   async getByRoom(roomId: number) {
     const response = await fetchWithErrorHandling(`${API_BASE_URL}/rooms/${roomId}/lights`);
