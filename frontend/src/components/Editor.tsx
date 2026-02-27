@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { projectsApi, floorsApi, roomsApi, furnitureApi, settingsApi, ApiError } from '../lib/api';
 import { useEditorStore, type EditorState, type EditorTool } from '../store/editorStore';
 import Viewport3D from './Viewport3D';
@@ -9,6 +10,7 @@ import PropertiesPanel from './PropertiesPanel';
 import SettingsModal from './SettingsModal';
 import ExportModal from './ExportModal';
 import EditHistory from './EditHistory';
+import FloorPlanOverlay from './FloorPlanOverlay';
 import { getUnitLabel } from '../lib/units';
 import {
   MousePointer2,
@@ -75,6 +77,8 @@ function Editor() {
   // Floor plan upload state
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showUploadError, setShowUploadError] = useState(false);
+  const [floorPlanImagePath, setFloorPlanImagePath] = useState<string | null>(null);
+  const [showFloorPlanOverlay, setShowFloorPlanOverlay] = useState(false);
 
   // Settings modal state
   const [showSettings, setShowSettings] = useState(false);
@@ -762,7 +766,7 @@ function Editor() {
     // Create a hidden file input and trigger it
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/png,image/jpeg,image/jpg';
+    input.accept = 'image/png,image/jpeg,image/jpg,image/webp';
 
     input.onchange = async (e: Event) => {
       const target = e.target as HTMLInputElement;
@@ -770,8 +774,8 @@ function Editor() {
       if (!file) return;
 
       // Validate file type
-      const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
-      const validExtensions = ['.png', '.jpg', '.jpeg'];
+      const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+      const validExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
 
       const isValidType = validTypes.includes(file.type);
       const isValidExtension = validExtensions.some(ext =>
@@ -779,21 +783,40 @@ function Editor() {
       );
 
       if (!isValidType && !isValidExtension) {
-        setUploadError('Please upload a valid image file (PNG, JPG, JPEG)');
+        setUploadError('Please upload a valid image file (PNG, JPG, JPEG, WebP)');
         setShowUploadError(true);
         return;
       }
 
-      // TODO: Implement floor plan processing
-      // For now, just show a success message (not an error)
-      console.log('Valid floor plan uploaded:', file.name);
-      setUploadError(null);
-      setShowUploadError(false);
+      // Upload to backend
+      const formData = new FormData();
+      formData.append('image', file);
 
-      // In future: send to backend for processing
-      // const formData = new FormData();
-      // formData.append('floorplan', file);
-      // await fetch(`/api/floors/${currentFloorId}/upload-floorplan`, { method: 'POST', body: formData });
+      try {
+        toast.loading('Uploading floor plan...', { id: 'floorplan-upload' });
+        
+        const response = await fetch(
+          `http://localhost:5000/api/floors/${currentFloorId}/floorplan`,
+          { method: 'POST', body: formData }
+        );
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          toast.success('Floor plan uploaded! Now set the scale and trace walls.', { id: 'floorplan-upload' });
+          setFloorPlanImagePath(data.imagePath);
+          setShowFloorPlanOverlay(true);
+          setUploadError(null);
+          setShowUploadError(false);
+        } else {
+          throw new Error(data.error || 'Upload failed');
+        }
+      } catch (error: any) {
+        console.error('Error uploading floor plan:', error);
+        toast.error('Failed to upload floor plan', { id: 'floorplan-upload' });
+        setUploadError(error.message || 'Failed to upload floor plan');
+        setShowUploadError(true);
+      }
     };
 
     input.click();
@@ -1420,6 +1443,24 @@ function Editor() {
           projectName={project.name}
           currentFloorId={currentFloorId}
           currentFloorName={floors.find((f: any) => f.id === currentFloorId)?.name}
+        />
+      )}
+
+      {/* Floor Plan Overlay */}
+      {showFloorPlanOverlay && floorPlanImagePath && currentFloorId && (
+        <FloorPlanOverlay
+          imagePath={floorPlanImagePath}
+          currentFloorId={currentFloorId}
+          onClose={() => {
+            setShowFloorPlanOverlay(false);
+            setFloorPlanImagePath(null);
+          }}
+          onCreateRooms={(newRooms) => {
+            // Add created rooms to store
+            const setRooms = useEditorStore.getState().setRooms;
+            const currentRooms = useEditorStore.getState().rooms;
+            setRooms([...currentRooms, ...newRooms]);
+          }}
         />
       )}
     </div>
