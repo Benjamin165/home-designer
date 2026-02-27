@@ -1,22 +1,22 @@
 # Home Designer - Feature Implementation Plan
 
 **Created:** 2026-02-27
-**Status:** Planning
+**Status:** ✅ COMPLETE (2026-02-27)
 
 This document tracks remaining features and improvements needed to fully implement the original design specification.
 
 ---
 
-## Phase 1: Room View Settings & Transparency ⏳
+## Phase 1: Room View Settings & Transparency ✅
 
 **Priority:** High | **Effort:** Medium | **Dependencies:** None
 
 ### Features
-- [ ] **1.1** Per-room transparency control (0-100% opacity slider)
-- [ ] **1.2** View Settings context menu for rooms (not just global settings)
-- [ ] **1.3** Show/hide individual room elements (floor, ceiling, walls)
-- [ ] **1.4** X-ray mode toggle (see through walls to visualize furniture layout)
-- [ ] **1.5** Wireframe view mode per room
+- [x] **1.1** Per-room transparency control (0-100% opacity slider)
+- [x] **1.2** View Settings context menu for rooms (not just global settings)
+- [x] **1.3** Show/hide individual room elements (floor, ceiling, walls)
+- [x] **1.4** X-ray mode toggle (see through walls to visualize furniture layout)
+- [x] **1.5** Wireframe view mode per room
 
 ### Implementation Notes
 - Add `opacity`, `showFloor`, `showCeiling`, `showWalls` to room state in Zustand
