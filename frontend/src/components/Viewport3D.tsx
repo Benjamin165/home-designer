@@ -1,18 +1,20 @@
 import { Canvas, useThree, ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Grid, Box, TransformControls } from '@react-three/drei';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useEditorStore } from '../store/editorStore';
 import { furnitureApi, roomsApi, wallsApi, lightsApi } from '../lib/api';
 import { WallMesh } from './WallMesh';
 import { LightMesh } from './LightMesh';
 import { FirstPersonControls, FirstPersonOverlay } from './FirstPersonControls';
+import { FloorMaterial, CeilingMaterial } from './RoomMaterials';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { Sun, Moon } from 'lucide-react';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
 import { Armchair, Settings, Trash2, Copy, Eye } from 'lucide-react';
 import { formatLength, formatArea } from '../lib/units';
+import { useProceduralTexture } from '../hooks/useTexture';
 
 interface Viewport3DProps {
   onOpenSettings?: () => void;
@@ -1217,7 +1219,7 @@ function RoomMesh({ room, isCurrentFloor = true }: { room: any; isCurrentFloor?:
 
   return (
     <group position={[posX, 0, posZ]} onClick={handleClick} onContextMenu={handleRoomContextMenu}>
-      {/* Floor */}
+      {/* Floor with procedural texture */}
       {showFloor && (
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
@@ -1226,48 +1228,15 @@ function RoomMesh({ room, isCurrentFloor = true }: { room: any; isCurrentFloor?:
           onPointerLeave={handlePointerLeave}
         >
           <planeGeometry args={[width, depth]} />
-          <meshStandardMaterial
-            color={(() => {
-              // Use floor_material to determine appearance
-              const material = room.floor_material || 'hardwood';
-              switch (material) {
-                case 'hardwood':
-                  return '#8B4513'; // Brown wood color
-                case 'tile':
-                  return '#E8E8E8'; // Light gray tile
-                case 'carpet':
-                  return '#A0522D'; // Sienna carpet
-                case 'marble':
-                  return '#F5F5F5'; // White marble
-                case 'laminate':
-                  return '#D2691E'; // Chocolate laminate
-                case 'concrete':
-                  return '#808080'; // Gray concrete
-                default:
-                  return room.floor_color || '#d1d5db';
-              }
-            })()}
-            roughness={(() => {
-              const material = room.floor_material || 'hardwood';
-              switch (material) {
-                case 'marble':
-                case 'tile':
-                  return 0.2; // Smooth, shiny
-                case 'concrete':
-                  return 0.8; // Rough
-                case 'carpet':
-                  return 0.9; // Very rough
-                case 'hardwood':
-                case 'laminate':
-                  return 0.4; // Semi-gloss
-                default:
-                  return 0.5;
-              }
-            })()}
+          <FloorMaterial
+            material={room.floor_material || 'hardwood'}
+            customColor={room.floor_color}
             wireframe={isWireframe}
             transparent={effectiveOpacity < 1 || isXray}
             opacity={effectiveOpacity}
             depthWrite={!isXray}
+            roomWidth={width}
+            roomDepth={depth}
           />
         </mesh>
       )}
@@ -1276,9 +1245,8 @@ function RoomMesh({ room, isCurrentFloor = true }: { room: any; isCurrentFloor?:
       {showCeiling && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, height, 0]}>
           <planeGeometry args={[width, depth]} />
-          <meshStandardMaterial
+          <CeilingMaterial
             color={room.ceiling_color || "#f3f4f6"}
-            side={THREE.DoubleSide}
             wireframe={isWireframe}
             transparent={effectiveOpacity < 1 || isXray}
             opacity={effectiveOpacity}

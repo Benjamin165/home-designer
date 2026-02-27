@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { useEditorStore, type EditorState } from '../store/editorStore';
+import { WallMaterial } from './RoomMaterials';
 
 interface Wall {
   id: number;
@@ -56,32 +57,7 @@ export function WallMesh({ wall, roomPosX: _roomPosX, roomPosZ: _roomPosZ, isCur
   };
 
   const wallColor = wall.color || '#e5e7eb';
-  const wallMaterial = wall.material || 'paint';
-
-  // Material properties for different wall types
-  const getMaterialProps = () => {
-    switch (wallMaterial) {
-      case 'brick':
-        return { color: '#8B4513', roughness: 0.9, metalness: 0.1 };
-      case 'wood_panel':
-        return { color: '#A0522D', roughness: 0.7, metalness: 0.0 };
-      case 'tile':
-        return { color: '#F5F5DC', roughness: 0.3, metalness: 0.2 };
-      case 'concrete':
-        return { color: '#808080', roughness: 0.95, metalness: 0.0 };
-      case 'wallpaper':
-        return { color: wallColor, roughness: 0.6, metalness: 0.0 };
-      case 'stone':
-        return { color: '#696969', roughness: 0.85, metalness: 0.1 };
-      case 'marble':
-        return { color: '#F8F8FF', roughness: 0.2, metalness: 0.3 };
-      case 'paint':
-      default:
-        return { color: wallColor, roughness: 0.8, metalness: 0.0 };
-    }
-  };
-
-  const matProps = getMaterialProps();
+  const wallMaterialType = wall.material || 'paint';
 
   // Calculate effective opacity
   const effectiveOpacity = opacity ?? (isCurrentFloor ? 1.0 : 0.3);
@@ -93,17 +69,17 @@ export function WallMesh({ wall, roomPosX: _roomPosX, roomPosZ: _roomPosZ, isCur
       onClick={handleClick}
     >
       <boxGeometry args={[wallLength, wallHeight, wallThickness]} />
-      <meshStandardMaterial
-        color={matProps.color}
-        roughness={matProps.roughness}
-        metalness={matProps.metalness}
-        emissive={isSelected ? '#3b82f6' : '#000000'}
-        emissiveIntensity={isSelected ? 0.3 : 0}
+      <WallMaterial
+        material={wallMaterialType}
+        customColor={wallColor}
         wireframe={wireframe}
         transparent={effectiveOpacity < 1 || xray}
         opacity={effectiveOpacity}
         depthWrite={!xray}
         side={xray ? THREE.DoubleSide : THREE.FrontSide}
+        isSelected={isSelected}
+        wallWidth={wallLength}
+        wallHeight={wallHeight}
       />
     </mesh>
   );
