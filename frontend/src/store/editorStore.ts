@@ -4,6 +4,8 @@ export type EditorTool = 'select' | 'draw-wall' | 'measure' | 'place-furniture' 
 
 export type LightType = 'point' | 'spot' | 'area';
 
+export type PerformanceMode = 'quality' | 'balanced' | 'performance';
+
 interface Light {
   id: number;
   room_id: number;
@@ -182,6 +184,10 @@ export interface EditorState {
   lightingMode: 'day' | 'night';
   setLightingMode: (mode: 'day' | 'night') => void;
 
+  // Performance
+  performanceMode: PerformanceMode;
+  setPerformanceMode: (mode: PerformanceMode) => void;
+
   // Undo/Redo
   history: HistoryAction[];
   historyIndex: number;
@@ -302,6 +308,10 @@ export const useEditorStore: any = create<EditorState>((set, get) => ({
 
   lightingMode: 'day',
   setLightingMode: (mode) => set({ lightingMode: mode }),
+
+  // Performance
+  performanceMode: 'balanced',
+  setPerformanceMode: (mode) => set({ performanceMode: mode }),
 
   // Undo/Redo implementation
   history: [],

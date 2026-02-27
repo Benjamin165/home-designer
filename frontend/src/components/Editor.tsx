@@ -11,6 +11,7 @@ import SettingsModal from './SettingsModal';
 import ExportModal from './ExportModal';
 import EditHistory from './EditHistory';
 import FloorPlanOverlay from './FloorPlanOverlay';
+import KeyboardShortcuts, { useKeyboardShortcuts } from './KeyboardShortcuts';
 import { getUnitLabel } from '../lib/units';
 import {
   MousePointer2,
@@ -83,6 +84,22 @@ function Editor() {
 
   // Settings modal state
   const [showSettings, setShowSettings] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // Register keyboard shortcuts
+  useKeyboardShortcuts();
+
+  // Listen for Ctrl+K to toggle shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowShortcuts(prev => !prev);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
   const [autoSaveInterval, setAutoSaveInterval] = useState(60000); // Default 60 seconds
 
   // Save state tracking
@@ -1464,6 +1481,9 @@ function Editor() {
           }}
         />
       )}
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcuts isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
   );
 }
