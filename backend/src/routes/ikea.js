@@ -72,7 +72,7 @@ router.get('/items/:id', (req, res) => {
 
 /**
  * GET /api/ikea/models/:id
- * Download/serve a model file (OBJ format from IKEA dataset)
+ * Download/serve a GLB model file
  */
 router.get('/models/:id', async (req, res) => {
   try {
@@ -84,12 +84,11 @@ router.get('/models/:id', async (req, res) => {
     // Download if not cached
     if (!modelInfo) {
       const result = await downloadIKEAModel(id);
-      modelInfo = { path: result.objPath, format: 'obj' };
+      modelInfo = { path: result.path, format: 'glb' };
     }
     
-    // Set content type based on format
-    const contentType = modelInfo.format === 'glb' ? 'model/gltf-binary' : 'text/plain';
-    res.setHeader('Content-Type', contentType);
+    // Set content type for GLB
+    res.setHeader('Content-Type', 'model/gltf-binary');
     
     // Serve the file
     res.sendFile(modelInfo.path);
