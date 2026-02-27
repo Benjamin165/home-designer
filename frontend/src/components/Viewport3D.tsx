@@ -3,8 +3,9 @@ import { OrbitControls, Grid, Box } from '@react-three/drei';
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useEditorStore } from '../store/editorStore';
-import { furnitureApi, roomsApi, wallsApi } from '../lib/api';
+import { furnitureApi, roomsApi, wallsApi, lightsApi } from '../lib/api';
 import { WallMesh } from './WallMesh';
+import { LightMesh } from './LightMesh';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { Sun, Moon } from 'lucide-react';
@@ -130,6 +131,11 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
   const currentTool = useEditorStore((state) => state.currentTool);
   const rooms = useEditorStore((state) => state.rooms);
   const furniturePlacements = useEditorStore((state) => state.furniturePlacements);
+  const lights = useEditorStore((state) => state.lights);
+  const setLights = useEditorStore((state) => state.setLights);
+  const addLight = useEditorStore((state) => state.addLight);
+  const placingLightType = useEditorStore((state) => state.placingLightType);
+  const setPlacingLightType = useEditorStore((state) => state.setPlacingLightType);
   const draggingAsset = useEditorStore((state) => state.draggingAsset);
   const currentFloorId = useEditorStore((state) => state.currentFloorId);
   const setCameraPosition = useEditorStore((state) => state.setCameraPosition);
@@ -138,6 +144,20 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
   const lightingMode = useEditorStore((state) => state.lightingMode);
 
   console.log('[DEBUG Scene] Furniture placements:', furniturePlacements);
+
+  // Fetch lights when floor changes
+  useEffect(() => {
+    const fetchLights = async () => {
+      if (!currentFloorId) return;
+      try {
+        const response = await lightsApi.getByFloor(currentFloorId);
+        setLights(response.lights || []);
+      } catch (error) {
+        console.error('Error fetching lights:', error);
+      }
+    };
+    fetchLights();
+  }, [currentFloorId, setLights]);
 
   const [dragState, setDragState] = useState<DragState>({
     isDrawing: false,
@@ -806,6 +826,46 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
         <FurnitureMesh key={furniture.id} furniture={furniture} onContextMenu={onFurnitureContextMenu} />
       ))}
 
+      {/* Render lights */}
+      {lights.map((light) => {
+        // Find the room this light belongs to for position offset
+        const room = rooms.find(r => r.id === light.room_id);
+        if (!room) return null;
+        return (
+          <LightMesh
+            key={light.id}
+            light={light}
+            roomPosition={{ x: room.position_x || 0, z: room.position_z || 0 }}
+          />
+        );
+      })}
+
+      {/* Light placement preview */}
+      {currentTool === 'place-light' && (
+        <LightPlacementHelper 
+          rooms={rooms} 
+          currentFloorId={currentFloorId}
+          onPlaceLight={async (roomId, position) => {
+            try {
+              const response = await lightsApi.create(roomId, {
+                type: 'point',
+                position_x: position.x,
+                position_y: position.y,
+                position_z: position.z,
+                intensity: 1.0,
+                color: '#ffffff',
+                color_temperature: 4000,
+              });
+              addLight(response.light);
+              toast.success('Light placed');
+            } catch (error) {
+              console.error('Error placing light:', error);
+              toast.error('Failed to place light');
+            }
+          }}
+        />
+      )}
+
       {/* Furniture preview while dragging */}
       {furniturePreview && (
         <FurniturePreview
@@ -880,6 +940,98 @@ function DimensionLabel({ width, depth }: { width: number; depth: number }) {
       {/* In a real implementation, we'd use a text rendering library */}
       {/* For now, this is a placeholder - the actual text would be rendered as HTML overlay */}
     </group>
+  );
+}
+
+// Light placement helper - shows preview and handles click to place
+function LightPlacementHelper({ 
+  rooms, 
+  currentFloorId, 
+  onPlaceLight 
+}: { 
+  rooms: any[]; 
+  currentFloorId: number | null;
+  onPlaceLight: (roomId: number, position: { x: number; y: number; z: number }) => void;
+}) {
+  const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number; z: number } | null>(null);
+  const [targetRoom, setTargetRoom] = useState<any>(null);
+  
+  const handlePointerMove = (e: any) => {
+    // Find which room the pointer is over
+    const point = e.point;
+    const currentRooms = rooms.filter(r => r.floor_id === currentFloorId);
+    
+    for (const room of currentRooms) {
+      const roomX = room.position_x || 0;
+      const roomZ = room.position_z || 0;
+      const width = room.dimensions_json?.width || 4;
+      const depth = room.dimensions_json?.depth || 4;
+      
+      // Check if point is within room bounds
+      const relX = point.x - roomX;
+      const relZ = point.z - roomZ;
+      
+      if (relX >= -width/2 && relX <= width/2 && relZ >= -depth/2 && relZ <= depth/2) {
+        setTargetRoom(room);
+        setPreviewPosition({
+          x: relX,
+          y: room.ceiling_height ? room.ceiling_height - 0.3 : 2.5, // Place near ceiling
+          z: relZ,
+        });
+        return;
+      }
+    }
+    
+    // Not over any room
+    setTargetRoom(null);
+    setPreviewPosition(null);
+  };
+  
+  const handleClick = (e: any) => {
+    if (targetRoom && previewPosition) {
+      e.stopPropagation();
+      onPlaceLight(targetRoom.id, previewPosition);
+    }
+  };
+  
+  return (
+    <>
+      {/* Invisible plane to capture pointer events */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0.02, 0]}
+        onPointerMove={handlePointerMove}
+        onClick={handleClick}
+      >
+        <planeGeometry args={[200, 200]} />
+        <meshBasicMaterial transparent opacity={0} />
+      </mesh>
+      
+      {/* Preview light bulb */}
+      {previewPosition && targetRoom && (
+        <group position={[
+          (targetRoom.position_x || 0) + previewPosition.x,
+          previewPosition.y,
+          (targetRoom.position_z || 0) + previewPosition.z,
+        ]}>
+          <mesh>
+            <sphereGeometry args={[0.15, 16, 16]} />
+            <meshStandardMaterial
+              color="#ffd700"
+              emissive="#ffd700"
+              emissiveIntensity={0.5}
+              transparent
+              opacity={0.7}
+            />
+          </mesh>
+          {/* Light cone preview */}
+          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, -1, 0]}>
+            <coneGeometry args={[0.5, 2, 16, 1, true]} />
+            <meshBasicMaterial color="#ffd700" transparent opacity={0.2} wireframe side={THREE.DoubleSide} />
+          </mesh>
+        </group>
+      )}
+    </>
   );
 }
 

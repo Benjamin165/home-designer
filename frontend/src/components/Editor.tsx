@@ -29,6 +29,7 @@ import {
   Check,
   Loader2,
   Grid3x3,
+  Lightbulb,
 } from 'lucide-react';
 
 interface Project {
@@ -967,6 +968,17 @@ function Editor() {
                 title="Place Furniture"
               >
                 <Armchair className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => handleToolSelect('place-light')}
+                className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  currentTool === 'place-light'
+                    ? 'bg-yellow-500 text-white'
+                    : 'text-gray-300 hover:bg-gray-600'
+                }`}
+                title="Place Light"
+              >
+                <Lightbulb className="w-5 h-5" />
               </button>
               <button
                 onClick={() => handleToolSelect('measure')}

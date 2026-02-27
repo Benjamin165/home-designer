@@ -1,6 +1,31 @@
 import { create } from 'zustand';
 
-export type EditorTool = 'select' | 'draw-wall' | 'measure' | 'place-furniture' | 'pan' | 'first-person';
+export type EditorTool = 'select' | 'draw-wall' | 'measure' | 'place-furniture' | 'place-light' | 'pan' | 'first-person';
+
+export type LightType = 'point' | 'spot' | 'area';
+
+interface Light {
+  id: number;
+  room_id: number;
+  type: LightType;
+  name: string | null;
+  position_x: number;
+  position_y: number;
+  position_z: number;
+  intensity: number;
+  color: string;
+  cone_angle: number | null;
+  distance: number;
+  decay: number;
+  cast_shadow: boolean;
+  color_temperature: number;
+  target_x: number | null;
+  target_y: number | null;
+  target_z: number | null;
+  width: number | null;
+  height: number | null;
+  penumbra: number;
+}
 
 interface Room {
   id: number;
@@ -112,6 +137,17 @@ export interface EditorState {
   updateRoom: (id: number, updates: Partial<Room>) => void;
   removeRoom: (id: number) => void;
 
+  // Lights
+  lights: Light[];
+  setLights: (lights: Light[]) => void;
+  addLight: (light: Light) => void;
+  updateLight: (id: number, updates: Partial<Light>) => void;
+  removeLight: (id: number) => void;
+  selectedLightId: number | null;
+  setSelectedLightId: (id: number | null) => void;
+  placingLightType: LightType | null;
+  setPlacingLightType: (type: LightType | null) => void;
+
   // Furniture placements
   furniturePlacements: FurniturePlacement[];
   setFurniturePlacements: (placements: FurniturePlacement[]) => void;
@@ -191,6 +227,23 @@ export const useEditorStore: any = create<EditorState>((set, get) => ({
     set((state) => ({
       rooms: state.rooms.filter((r) => r.id !== id),
     })),
+
+  // Lights
+  lights: [],
+  setLights: (lights) => set({ lights }),
+  addLight: (light) => set((state) => ({ lights: [...state.lights, light] })),
+  updateLight: (id, updates) =>
+    set((state) => ({
+      lights: state.lights.map((l) => (l.id === id ? { ...l, ...updates } : l)),
+    })),
+  removeLight: (id) =>
+    set((state) => ({
+      lights: state.lights.filter((l) => l.id !== id),
+    })),
+  selectedLightId: null,
+  setSelectedLightId: (id) => set({ selectedLightId: id }),
+  placingLightType: null,
+  setPlacingLightType: (type) => set({ placingLightType: type }),
 
   furniturePlacements: [],
   setFurniturePlacements: (placements) => set({ furniturePlacements: placements }),

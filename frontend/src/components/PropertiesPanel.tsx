@@ -1,7 +1,7 @@
 import { useEditorStore } from '../store/editorStore';
 import { X, ChevronRight, ChevronLeft, Trash2, RotateCw } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { roomsApi, furnitureApi, wallsApi } from '../lib/api';
+import { roomsApi, furnitureApi, wallsApi, lightsApi } from '../lib/api';
 import { toast } from 'sonner';
 import DeleteRoomDialog from './DeleteRoomDialog';
 import { formatLength, formatArea } from '../lib/units';
@@ -11,7 +11,7 @@ interface PropertiesPanelProps {
 }
 
 function PropertiesPanel({ projectName }: PropertiesPanelProps) {
-  const { selectedRoomId, setSelectedRoomId, selectedWallId, setSelectedWallId, selectedFurnitureId, setSelectedFurnitureId, selectedFurnitureIds, rooms, floors, currentFloorId, furniturePlacements, setRooms, setFurniturePlacements, updateFurniturePlacement, updateRoom, unitSystem } = useEditorStore();
+  const { selectedRoomId, setSelectedRoomId, selectedWallId, setSelectedWallId, selectedFurnitureId, setSelectedFurnitureId, selectedFurnitureIds, rooms, floors, currentFloorId, furniturePlacements, setRooms, setFurniturePlacements, updateFurniturePlacement, updateRoom, unitSystem, selectedLightId, setSelectedLightId, lights, updateLight, removeLight } = useEditorStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ceilingHeight, setCeilingHeight] = useState<string>('');
@@ -27,6 +27,7 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
   const [lightColor, setLightColor] = useState<string>('#fff8e1');
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
+  const selectedLight = lights.find((l) => l.id === selectedLightId);
   const currentFloor = floors.find((f) => f.id === currentFloorId);
   const selectedFurniture = furniturePlacements.find((f) => f.id === selectedFurnitureId);
 

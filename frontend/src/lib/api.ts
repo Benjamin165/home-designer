@@ -351,6 +351,61 @@ export const healthApi = {
   },
 };
 
+// Lights API methods
+export const lightsApi = {
+  async getByRoom(roomId: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/rooms/${roomId}/lights`);
+    return response.json();
+  },
+
+  async getByFloor(floorId: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/floors/${floorId}/lights`);
+    return response.json();
+  },
+
+  async create(roomId: number, data: {
+    type?: 'point' | 'spot' | 'area' | 'floor_lamp' | 'ceiling' | 'wall_sconce' | 'table_lamp' | 'pendant';
+    name?: string;
+    position_x?: number;
+    position_y?: number;
+    position_z?: number;
+    intensity?: number;
+    color?: string;
+    cone_angle?: number;
+    distance?: number;
+    decay?: number;
+    cast_shadow?: boolean;
+    color_temperature?: number;
+    target_x?: number;
+    target_y?: number;
+    target_z?: number;
+    width?: number;
+    height?: number;
+    penumbra?: number;
+  }) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/rooms/${roomId}/lights`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async update(id: number, data: any) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/lights/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async delete(id: number) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/lights/${id}`, {
+      method: 'DELETE',
+    });
+    return response.json();
+  },
+};
+
 // AI API methods
 export const aiApi = {
   /**
