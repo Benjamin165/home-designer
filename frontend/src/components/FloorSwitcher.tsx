@@ -1,4 +1,4 @@
-import { useEditorStore } from '../store/editorStore';
+import { useEditorStore, type EditorState } from '../store/editorStore';
 import { floorsApi } from '../lib/api';
 import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -20,8 +20,8 @@ function FloorSwitcher({ projectId }: FloorSwitcherProps) {
       setIsAdding(true);
 
       // Calculate next floor level and order
-      const maxLevel = floors.length > 0 ? Math.max(...floors.map(f => f.level)) : -1;
-      const maxOrder = floors.length > 0 ? Math.max(...floors.map(f => f.order_index)) : -1;
+      const maxLevel = floors.length > 0 ? Math.max(...floors.map((f: any) => f.level)) : -1;
+      const maxOrder = floors.length > 0 ? Math.max(...floors.map((f: any) => f.order_index)) : -1;
 
       const newLevel = maxLevel + 1;
       const newOrder = maxOrder + 1;
@@ -145,7 +145,7 @@ function FloorSwitcher({ projectId }: FloorSwitcherProps) {
       setFloors(newFloors);
 
       // Remove rooms that belonged to this floor
-      const newRooms = rooms.filter(r => r.floor_id !== floorToDelete);
+      const newRooms = rooms.filter((r: any) => r.floor_id !== floorToDelete);
       setRooms(newRooms);
 
       // If deleted floor was current, switch to another floor
@@ -172,9 +172,9 @@ function FloorSwitcher({ projectId }: FloorSwitcherProps) {
   };
 
   // Get floor being deleted for dialog
-  const floorBeingDeleted = floors.find(f => f.id === floorToDelete);
+  const floorBeingDeleted = floors.find((f: any) => f.id === floorToDelete);
   const roomCountOnFloor = floorBeingDeleted
-    ? rooms.filter(r => r.floor_id === floorBeingDeleted.id).length
+    ? rooms.filter((r: any) => r.floor_id === floorBeingDeleted.id).length
     : 0;
 
   return (
@@ -182,7 +182,7 @@ function FloorSwitcher({ projectId }: FloorSwitcherProps) {
       <div className="fixed right-4 top-24 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-2 z-10 flex flex-col gap-2">
         {/* Floor list */}
         <div className="flex flex-col gap-1">
-          {floors.map((floor) => (
+          {floors.map((floor: any) => (
             <div
               key={floor.id}
               className="relative"

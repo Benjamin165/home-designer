@@ -18,7 +18,7 @@ export default function AIGenerationModal({ isOpen, onClose, onSuccess }: AIGene
   const [assetName, setAssetName] = useState('');
   const [category, setCategory] = useState('Furniture');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [generationId, setGenerationId] = useState<number | null>(null);
+  const [_generationId, setGenerationId] = useState<number | null>(null);
 
   // Reset state when modal closes
   useEffect(() => {

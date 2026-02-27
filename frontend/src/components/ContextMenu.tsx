@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Copy, Trash2, Settings, Armchair, Eye } from 'lucide-react';
 
 export interface ContextMenuItem {
   label: string;

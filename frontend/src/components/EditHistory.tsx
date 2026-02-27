@@ -1,9 +1,9 @@
-import { useEditorStore, type HistoryAction } from '../store/editorStore';
+import { useEditorStore, type EditorState, type HistoryAction } from '../store/editorStore';
 import { History, Clock } from 'lucide-react';
 
 export default function EditHistory() {
-  const history = useEditorStore((state) => state.history);
-  const historyIndex = useEditorStore((state) => state.historyIndex);
+  const history = useEditorStore((state: EditorState) => state.history);
+  const historyIndex = useEditorStore((state: EditorState) => state.historyIndex);
 
   if (history.length === 0) {
     return (
@@ -43,7 +43,7 @@ export default function EditHistory() {
 
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <div className="flex gap-2 p-4 min-w-max">
-          {history.map((action, index) => {
+          {history.map((action: HistoryAction, index: number) => {
             const isCurrent = index === historyIndex;
             const isFuture = index > historyIndex;
 

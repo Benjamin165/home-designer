@@ -1,5 +1,4 @@
-import { useEditorStore } from '../store/editorStore';
-import * as THREE from 'three';
+import { useEditorStore, type EditorState } from '../store/editorStore';
 
 interface Wall {
   id: number;
@@ -21,10 +20,10 @@ interface WallMeshProps {
   isCurrentFloor?: boolean;
 }
 
-export function WallMesh({ wall, roomPosX, roomPosZ, isCurrentFloor = true }: WallMeshProps) {
-  const selectedWallId = useEditorStore((state) => state.selectedWallId);
-  const setSelectedWallId = useEditorStore((state) => state.setSelectedWallId);
-  const currentTool = useEditorStore((state) => state.currentTool);
+export function WallMesh({ wall, roomPosX: _roomPosX, roomPosZ: _roomPosZ, isCurrentFloor = true }: WallMeshProps) {
+  const selectedWallId = useEditorStore((state: EditorState) => state.selectedWallId);
+  const setSelectedWallId = useEditorStore((state: EditorState) => state.setSelectedWallId);
+  const currentTool = useEditorStore((state: EditorState) => state.currentTool);
 
   const isSelected = selectedWallId === wall.id;
 

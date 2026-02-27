@@ -277,8 +277,8 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
     const savedPosition = cameraPositions[currentFloorId];
     if (savedPosition) {
       // Restore camera position and target
-      camera.position.set(...savedPosition.position);
-      controlsRef.current.target.set(...savedPosition.target);
+      camera.position.set(savedPosition.position[0], savedPosition.position[1], savedPosition.position[2]);
+      controlsRef.current.target.set(savedPosition.target[0], savedPosition.target[1], savedPosition.target[2]);
       controlsRef.current.update();
     }
   }, [currentFloorId, cameraPositions, camera]);
@@ -724,9 +724,9 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
 
       {/* Preview rectangle while drawing */}
       {previewDims && (
-        <group position={[previewDims.centerX, 0.01, previewDims.centerZ]} raycast={false}>
+        <group position={[previewDims.centerX, 0.01, previewDims.centerZ]} raycast={() => null}>
           {/* Floor preview */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} raycast={false}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} raycast={() => null}>
             <planeGeometry args={[previewDims.width, previewDims.depth]} />
             <meshBasicMaterial color="#3b82f6" opacity={0.3} transparent />
           </mesh>
@@ -826,27 +826,27 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
 // Wall preview component
 function WallPreview({ width, depth, height }: { width: number; depth: number; height: number }) {
   return (
-    <group raycast={false}>
+    <group raycast={() => null}>
       {/* Front wall */}
-      <mesh position={[0, height / 2, depth / 2]} raycast={false}>
+      <mesh position={[0, height / 2, depth / 2]} raycast={() => null}>
         <boxGeometry args={[width, height, 0.1]} />
         <meshStandardMaterial color="#3b82f6" opacity={0.5} transparent />
       </mesh>
 
       {/* Back wall */}
-      <mesh position={[0, height / 2, -depth / 2]} raycast={false}>
+      <mesh position={[0, height / 2, -depth / 2]} raycast={() => null}>
         <boxGeometry args={[width, height, 0.1]} />
         <meshStandardMaterial color="#3b82f6" opacity={0.5} transparent />
       </mesh>
 
       {/* Left wall */}
-      <mesh position={[-width / 2, height / 2, 0]} raycast={false}>
+      <mesh position={[-width / 2, height / 2, 0]} raycast={() => null}>
         <boxGeometry args={[0.1, height, depth]} />
         <meshStandardMaterial color="#3b82f6" opacity={0.5} transparent />
       </mesh>
 
       {/* Right wall */}
-      <mesh position={[width / 2, height / 2, 0]} raycast={false}>
+      <mesh position={[width / 2, height / 2, 0]} raycast={() => null}>
         <boxGeometry args={[0.1, height, depth]} />
         <meshStandardMaterial color="#3b82f6" opacity={0.5} transparent />
       </mesh>
@@ -868,8 +868,8 @@ function DimensionLabel({ width, depth }: { width: number; depth: number }) {
   };
 
   return (
-    <group position={[0, 2.8 + 0.5, 0]} raycast={false}>
-      <mesh raycast={false}>
+    <group position={[0, 2.8 + 0.5, 0]} raycast={() => null}>
+      <mesh raycast={() => null}>
         <boxGeometry args={[2, 0.5, 0.1]} />
         <meshBasicMaterial color="#1e1e28" opacity={0.9} transparent />
       </mesh>

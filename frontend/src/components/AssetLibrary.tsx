@@ -124,8 +124,8 @@ export default function AssetLibrary() {
     }
   };
 
-  // Get unique categories
-  const categories = ['All', ...new Set(assets.map((a) => a.category))];
+  // Get unique categories (currently unused, but available for future filtering)
+  const _categories = ['All', ...new Set(assets.map((a) => a.category))];
 
   // Assets are already filtered by the API (category and search)
   const filteredAssets = assets;

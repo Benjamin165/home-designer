@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type EditorTool = 'select' | 'draw-wall' | 'measure';
+export type EditorTool = 'select' | 'draw-wall' | 'measure' | 'place-furniture' | 'pan' | 'first-person';
 
 interface Room {
   id: number;
@@ -79,7 +79,7 @@ export interface HistoryAction {
   };
 }
 
-interface EditorState {
+export interface EditorState {
   // Current tool
   currentTool: EditorTool;
   setCurrentTool: (tool: EditorTool) => void;
@@ -149,7 +149,7 @@ interface EditorState {
   clearHistory: () => void;
 }
 
-export const useEditorStore = create<EditorState>((set) => ({
+export const useEditorStore: any = create<EditorState>((set, get) => ({
   currentTool: 'select',
   setCurrentTool: (tool) => set({ currentTool: tool }),
 
@@ -167,8 +167,8 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((state) => ({
       cameraPositions: { ...state.cameraPositions, [floorId]: position },
     })),
-  getCameraPosition: (floorId) => {
-    const state = useEditorStore.getState();
+  getCameraPosition: (floorId: number) => {
+    const state = get();
     return state.cameraPositions[floorId];
   },
 
@@ -414,12 +414,12 @@ export const useEditorStore = create<EditorState>((set) => ({
   },
 
   canUndo: () => {
-    const state = useEditorStore.getState();
+    const state = get();
     return state.historyIndex >= 0;
   },
 
   canRedo: () => {
-    const state = useEditorStore.getState();
+    const state = get();
     return state.historyIndex < state.history.length - 1;
   },
 

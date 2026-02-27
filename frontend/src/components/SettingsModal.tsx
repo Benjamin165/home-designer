@@ -91,7 +91,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
     setSaving(true);
     try {
-      await settingsApi.update(settings);
+      await settingsApi.update(settings as any);
 
       // Update the editor store with the new unit system
       if (settings.unit_system === 'metric' || settings.unit_system === 'imperial') {

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { projectsApi, floorsApi, roomsApi, furnitureApi, settingsApi, ApiError } from '../lib/api';
-import { useEditorStore } from '../store/editorStore';
+import { useEditorStore, type EditorState, type EditorTool } from '../store/editorStore';
 import Viewport3D from './Viewport3D';
 import AssetLibrary from './AssetLibrary';
 import FloorSwitcher from './FloorSwitcher';
@@ -48,7 +48,7 @@ function Editor() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dimensionText, setDimensionText] = useState<string>('');
-  const dragDataRef = useRef<{ startX: number; startZ: number; width: number; depth: number } | null>(null);
+  const _dragDataRef = useRef<{ startX: number; startZ: number; width: number; depth: number } | null>(null);
   const creatingDefaultFloorRef = useRef(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState('');
@@ -68,7 +68,7 @@ function Editor() {
   const [heightError, setHeightError] = useState<string | null>(null);
 
   // Export state
-  const [isExporting, setIsExporting] = useState(false);
+  const [_isExporting, setIsExporting] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
 
   // Floor plan upload state
@@ -81,9 +81,9 @@ function Editor() {
 
   // Save state tracking
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<number | null>(null);
   const lastSaveDataRef = useRef<string>('');
-  const furniturePlacements = useEditorStore((state) => state.furniturePlacements);
+  const furniturePlacements = useEditorStore((state: EditorState) => state.furniturePlacements);
 
   // Unsaved changes warning
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
@@ -198,7 +198,7 @@ function Editor() {
       }
 
       // Find which room contains the drop position
-      const targetRoom = rooms.find((room) => {
+      const targetRoom = rooms.find((room: any) => {
         const width = room.dimensions_json?.width || 4;
         const depth = room.dimensions_json?.depth || 4;
         const roomX = room.position_x || 0;
@@ -291,7 +291,7 @@ function Editor() {
         // Ctrl+C: Copy furniture
         e.preventDefault();
         if (selectedFurnitureId) {
-          const furniture = furniturePlacements.find(f => f.id === selectedFurnitureId);
+          const furniture = furniturePlacements.find((f: any) => f.id === selectedFurnitureId);
           if (furniture) {
             setCopiedFurniture(furniture);
             console.log('[Copy] Furniture copied:', furniture.asset_name || 'furniture');
@@ -581,7 +581,7 @@ function Editor() {
     setShowUnsavedWarning(false);
   };
 
-  const handleToolSelect = (tool: 'select' | 'draw-wall' | 'measure') => {
+  const handleToolSelect = (tool: EditorTool) => {
     setCurrentTool(tool);
   };
 
@@ -635,7 +635,7 @@ function Editor() {
     }
   };
 
-  const handleExport = async () => {
+  const _handleExport = async () => {
     if (!project) return;
 
     try {
@@ -1127,7 +1127,7 @@ function Editor() {
               <div>
                 <span className="text-gray-400">Floor: </span>
                 <span className="font-medium">
-                  {floors.find((f) => f.id === currentFloorId)?.name || 'None'}
+                  {floors.find((f: any) => f.id === currentFloorId)?.name || 'None'}
                 </span>
               </div>
             </div>
@@ -1407,7 +1407,7 @@ function Editor() {
           projectId={project.id}
           projectName={project.name}
           currentFloorId={currentFloorId}
-          currentFloorName={floors.find(f => f.id === currentFloorId)?.name}
+          currentFloorName={floors.find((f: any) => f.id === currentFloorId)?.name}
         />
       )}
     </div>
