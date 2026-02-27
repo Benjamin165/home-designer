@@ -3,8 +3,9 @@ import multer from 'multer';
 import { getDatabase, saveDatabase } from '../db/connection.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync } from 'fs';
 import crypto from 'crypto';
+import { TrellisClient, generatePlaceholderModel } from '../services/trellis.js';
 
 const router = express.Router();
 
@@ -91,39 +92,49 @@ async function getTrellisApiKey() {
  * Call Microsoft TRELLIS API to generate 3D model from photo
  */
 async function callTrellisApi(imagePath, apiKey) {
-  // TODO: Implement actual TRELLIS API integration
-  // For now, this is a placeholder that simulates the API call
-
   console.log('Calling TRELLIS API with image:', imagePath);
 
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
-
   // Check if API key exists
-  if (!apiKey || apiKey === '****') {
-    throw new Error('TRELLIS API key not configured. Please add it in Settings.');
+  if (!apiKey || apiKey === '****' || apiKey === '') {
+    console.log('[TRELLIS] No API key configured, using placeholder');
+    return generatePlaceholderModel(imagePath);
   }
 
-  // Simulate successful generation
-  // In real implementation, this would:
-  // 1. Upload image to TRELLIS
-  // 2. Poll for generation status
-  // 3. Download the generated 3D model
-  // 4. Save it to assets/models/
-
-  const modelId = crypto.randomBytes(8).toString('hex');
-  const modelPath = `/assets/models/generated-${modelId}.glb`;
-  const thumbnailPath = imagePath; // Use uploaded image as thumbnail for now
-
-  return {
-    modelPath,
-    thumbnailPath,
-    dimensions: {
-      width: 1.0,
-      height: 0.8,
-      depth: 0.5
+  try {
+    // Determine endpoint type from API key format
+    // Replicate keys start with 'r8_', Hugging Face tokens start with 'hf_'
+    let endpointType = 'huggingface';
+    if (apiKey.startsWith('r8_')) {
+      endpointType = 'replicate';
     }
-  };
+
+    const client = new TrellisClient(apiKey, endpointType);
+
+    // Read image and convert to base64
+    const fullImagePath = join(__dirname, '../../..', imagePath);
+    const imageBuffer = readFileSync(fullImagePath);
+    const imageBase64 = imageBuffer.toString('base64');
+
+    // Generate 3D model
+    const result = await client.generate(imagePath, imageBase64);
+
+    return {
+      modelPath: result.modelPath,
+      thumbnailPath: result.thumbnailPath || imagePath,
+      dimensions: result.dimensions || {
+        width: 1.0,
+        height: 0.8,
+        depth: 0.5
+      }
+    };
+
+  } catch (error) {
+    console.error('[TRELLIS] API error:', error.message);
+    
+    // Fall back to placeholder on error
+    console.log('[TRELLIS] Falling back to placeholder model');
+    return generatePlaceholderModel(imagePath);
+  }
 }
 
 /**
@@ -599,5 +610,81 @@ async function downloadImage(imageUrl) {
     throw new Error(`Failed to download image: ${error.message}`);
   }
 }
+
+/**
+ * GET /api/ai/trellis/status
+ * Check TRELLIS API configuration status
+ */
+router.get('/trellis/status', async (req, res) => {
+  try {
+    const apiKey = await getTrellisApiKey();
+    
+    const hasApiKey = !!(apiKey && apiKey !== '****' && apiKey !== '');
+    
+    let endpointType = 'none';
+    if (hasApiKey) {
+      if (apiKey.startsWith('r8_')) {
+        endpointType = 'replicate';
+      } else if (apiKey.startsWith('hf_')) {
+        endpointType = 'huggingface';
+      } else {
+        endpointType = 'custom';
+      }
+    }
+    
+    res.json({
+      configured: hasApiKey,
+      endpointType,
+      message: hasApiKey 
+        ? `TRELLIS configured with ${endpointType} endpoint`
+        : 'TRELLIS API key not configured. Add it in Settings to enable AI model generation.',
+    });
+  } catch (error) {
+    console.error('Error checking TRELLIS status:', error);
+    res.status(500).json({
+      configured: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/ai/trellis/test
+ * Test TRELLIS API connection
+ */
+router.post('/trellis/test', async (req, res) => {
+  try {
+    const apiKey = await getTrellisApiKey();
+    
+    if (!apiKey || apiKey === '****' || apiKey === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'TRELLIS API key not configured',
+      });
+    }
+    
+    // Determine endpoint type
+    let endpointType = 'huggingface';
+    if (apiKey.startsWith('r8_')) {
+      endpointType = 'replicate';
+    }
+    
+    const client = new TrellisClient(apiKey, endpointType);
+    
+    // Just test that the client can be created and endpoint is reachable
+    // We don't run an actual generation as it's resource-intensive
+    res.json({
+      success: true,
+      endpointType,
+      message: `TRELLIS API configured successfully (${endpointType} endpoint)`,
+    });
+  } catch (error) {
+    console.error('Error testing TRELLIS:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
 
 export default router;

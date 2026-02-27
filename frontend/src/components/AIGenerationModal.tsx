@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Upload, Loader2, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { X, Upload, Loader2, AlertCircle, CheckCircle2, RefreshCw, Settings, Zap } from 'lucide-react';
 import { aiApi } from '../lib/api';
 import { toast } from 'sonner';
 
@@ -11,6 +11,12 @@ interface AIGenerationModalProps {
 
 type GenerationStatus = 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
 
+interface TrellisStatus {
+  configured: boolean;
+  endpointType: string;
+  message: string;
+}
+
 export default function AIGenerationModal({ isOpen, onClose, onSuccess }: AIGenerationModalProps) {
   const [status, setStatus] = useState<GenerationStatus>('idle');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -19,6 +25,30 @@ export default function AIGenerationModal({ isOpen, onClose, onSuccess }: AIGene
   const [category, setCategory] = useState('Furniture');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [_generationId, setGenerationId] = useState<number | null>(null);
+  const [trellisStatus, setTrellisStatus] = useState<TrellisStatus | null>(null);
+  const [progress, setProgress] = useState<number>(0);
+
+  // Check TRELLIS status on mount
+  useEffect(() => {
+    const checkTrellisStatus = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/ai/trellis/status');
+        const data = await response.json();
+        setTrellisStatus(data);
+      } catch (error) {
+        console.error('Error checking TRELLIS status:', error);
+        setTrellisStatus({
+          configured: false,
+          endpointType: 'none',
+          message: 'Unable to check TRELLIS API status',
+        });
+      }
+    };
+
+    if (isOpen) {
+      checkTrellisStatus();
+    }
+  }, [isOpen]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -31,9 +61,27 @@ export default function AIGenerationModal({ isOpen, onClose, onSuccess }: AIGene
         setCategory('Furniture');
         setErrorMessage(null);
         setGenerationId(null);
+        setProgress(0);
       }, 300); // Wait for modal animation
     }
   }, [isOpen]);
+
+  // Simulate progress during processing
+  useEffect(() => {
+    let interval: number | null = null;
+    if (status === 'processing') {
+      setProgress(10);
+      interval = window.setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 90) return prev;
+          return prev + Math.random() * 10;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [status]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -133,16 +181,49 @@ export default function AIGenerationModal({ isOpen, onClose, onSuccess }: AIGene
 
         {/* Content */}
         <div className="px-6 py-4 space-y-4">
-          {/* Status indicator */}
-          {status === 'processing' && (
-            <div className="bg-blue-900 bg-opacity-30 border border-blue-700 rounded p-4 flex items-start gap-3">
-              <Loader2 className="w-5 h-5 text-blue-400 animate-spin flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-blue-300 font-medium">Generating 3D model...</p>
-                <p className="text-blue-400 text-sm mt-1">
-                  This may take a few moments. Please wait.
+          {/* TRELLIS API Status */}
+          {trellisStatus && !trellisStatus.configured && status === 'idle' && (
+            <div className="bg-yellow-900 bg-opacity-30 border border-yellow-700 rounded p-3 flex items-start gap-3">
+              <Settings className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-yellow-300 font-medium text-sm">TRELLIS API Not Configured</p>
+                <p className="text-yellow-400 text-xs mt-1">
+                  Add your TRELLIS/Replicate API key in Settings to enable AI model generation.
+                  Without it, a placeholder model will be used.
                 </p>
               </div>
+            </div>
+          )}
+
+          {trellisStatus?.configured && status === 'idle' && (
+            <div className="bg-green-900 bg-opacity-20 border border-green-800 rounded p-2 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-green-400" />
+              <p className="text-green-400 text-xs">
+                TRELLIS API ready ({trellisStatus.endpointType})
+              </p>
+            </div>
+          )}
+
+          {/* Status indicator */}
+          {status === 'processing' && (
+            <div className="bg-blue-900 bg-opacity-30 border border-blue-700 rounded p-4">
+              <div className="flex items-start gap-3">
+                <Loader2 className="w-5 h-5 text-blue-400 animate-spin flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-blue-300 font-medium">Generating 3D model...</p>
+                  <p className="text-blue-400 text-sm mt-1">
+                    This may take 30-60 seconds. Please wait.
+                  </p>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div className="mt-3 bg-gray-700 rounded-full h-2 overflow-hidden">
+                <div 
+                  className="bg-blue-500 h-full transition-all duration-500 ease-out"
+                  style={{ width: `${Math.min(progress, 95)}%` }}
+                />
+              </div>
+              <p className="text-blue-400 text-xs mt-1 text-right">{Math.round(progress)}%</p>
             </div>
           )}
 
