@@ -15,6 +15,7 @@ const __dirname = dirname(__filename);
 
 // IKEA 3D Assembly Dataset models (official, CC BY-NC-SA 4.0)
 // These are real IKEA product IDs with GLB models available
+// Note: The dataset provides OBJ files, not GLB. We use the OBJ files and note this limitation.
 const IKEA_CATALOG = [
   {
     id: 'BEKVAM_40463852',
@@ -25,7 +26,9 @@ const IKEA_CATALOG = [
     height: 0.50,
     depth: 0.39,
     price: 24.99,
-    glbUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/BEKVAM_40463852/BEKVAM_40463852.glb',
+    // OBJ format from the actual dataset
+    objUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/Dataset/BEKV%C3%84M_40463852/BEKV%C3%84M_40463852.obj',
+    mtlUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/Dataset/BEKV%C3%84M_40463852/BEKV%C3%84M_40463852.mtl',
   },
   {
     id: 'DALFRED_60155602',
@@ -36,7 +39,8 @@ const IKEA_CATALOG = [
     height: 0.63,
     depth: 0.40,
     price: 39.99,
-    glbUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/DALFRED_60155602/DALFRED_60155602.glb',
+    objUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/Dataset/DALFRED_60155602/DALFRED_60155602.obj',
+    mtlUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/Dataset/DALFRED_60155602/DALFRED_60155602.mtl',
   },
   {
     id: 'EKET_00333947_70x35x35',
@@ -47,7 +51,8 @@ const IKEA_CATALOG = [
     height: 0.35,
     depth: 0.35,
     price: 35.00,
-    glbUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/EKET_00333947_70x35x35/EKET_00333947_70x35x35.glb',
+    objUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/Dataset/EKET_00333947_70x35x35/EKET_00333947_70x35x35.obj',
+    mtlUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/Dataset/EKET_00333947_70x35x35/EKET_00333947_70x35x35.mtl',
   },
   {
     id: 'EKET_70332124_35x25x35',
@@ -58,7 +63,8 @@ const IKEA_CATALOG = [
     height: 0.25,
     depth: 0.35,
     price: 20.00,
-    glbUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/EKET_70332124_35x25x35/EKET_70332124_35x25x35.glb',
+    objUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/Dataset/EKET_70332124_35x25x35/EKET_70332124_35x25x35.obj',
+    mtlUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/Dataset/EKET_70332124_35x25x35/EKET_70332124_35x25x35.mtl',
   },
   {
     id: 'LACK_30449908_55x55',
@@ -69,7 +75,8 @@ const IKEA_CATALOG = [
     height: 0.45,
     depth: 0.55,
     price: 9.99,
-    glbUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/LACK_30449908_55x55/LACK_30449908_55x55.glb',
+    objUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/Dataset/LACK_30449908_55x55/LACK_30449908_55x55.obj',
+    mtlUrl: 'https://raw.githubusercontent.com/IKEA/IKEA3DAssemblyDataset/main/Dataset/LACK_30449908_55x55/LACK_30449908_55x55.mtl',
   },
 ];
 
@@ -112,7 +119,8 @@ export function getIKEAItem(id) {
 }
 
 /**
- * Download and cache a GLB model
+ * Download and cache model files (OBJ + MTL)
+ * Note: IKEA 3D Assembly Dataset provides OBJ format, not GLB
  */
 export async function downloadIKEAModel(id) {
   const item = getIKEAItem(id);
@@ -120,33 +128,51 @@ export async function downloadIKEAModel(id) {
     throw new Error(`IKEA item not found: ${id}`);
   }
 
-  const cachePath = join(CACHE_DIR, `${id}.glb`);
+  const objCachePath = join(CACHE_DIR, `${id}.obj`);
+  const mtlCachePath = join(CACHE_DIR, `${id}.mtl`);
   
   // Check if already cached
-  if (existsSync(cachePath)) {
+  if (existsSync(objCachePath)) {
     console.log(`[IKEA] Model ${id} already cached`);
     return {
-      path: cachePath,
+      objPath: objCachePath,
+      mtlPath: existsSync(mtlCachePath) ? mtlCachePath : null,
       cached: true,
+      format: 'obj',
     };
   }
 
-  // Download the model
-  console.log(`[IKEA] Downloading model ${id} from ${item.glbUrl}`);
+  // Download the OBJ model
+  console.log(`[IKEA] Downloading model ${id} from ${item.objUrl}`);
   
   try {
-    const response = await fetch(item.glbUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to download: ${response.status} ${response.statusText}`);
+    // Download OBJ
+    const objResponse = await fetch(item.objUrl);
+    if (!objResponse.ok) {
+      throw new Error(`Failed to download OBJ: ${objResponse.status} ${objResponse.statusText}`);
     }
+    const objBuffer = await objResponse.arrayBuffer();
+    writeFileSync(objCachePath, Buffer.from(objBuffer));
 
-    const buffer = await response.arrayBuffer();
-    writeFileSync(cachePath, Buffer.from(buffer));
+    // Download MTL if available
+    if (item.mtlUrl) {
+      try {
+        const mtlResponse = await fetch(item.mtlUrl);
+        if (mtlResponse.ok) {
+          const mtlBuffer = await mtlResponse.arrayBuffer();
+          writeFileSync(mtlCachePath, Buffer.from(mtlBuffer));
+        }
+      } catch (mtlError) {
+        console.warn(`[IKEA] Could not download MTL for ${id}:`, mtlError.message);
+      }
+    }
     
-    console.log(`[IKEA] Model ${id} downloaded and cached`);
+    console.log(`[IKEA] Model ${id} downloaded and cached (OBJ format)`);
     return {
-      path: cachePath,
+      objPath: objCachePath,
+      mtlPath: existsSync(mtlCachePath) ? mtlCachePath : null,
       cached: false,
+      format: 'obj',
     };
   } catch (error) {
     console.error(`[IKEA] Error downloading model ${id}:`, error.message);
@@ -158,9 +184,15 @@ export async function downloadIKEAModel(id) {
  * Get the local path for a cached model
  */
 export function getModelPath(id) {
-  const cachePath = join(CACHE_DIR, `${id}.glb`);
-  if (existsSync(cachePath)) {
-    return cachePath;
+  // Check for OBJ first (primary format from IKEA dataset)
+  const objPath = join(CACHE_DIR, `${id}.obj`);
+  if (existsSync(objPath)) {
+    return { path: objPath, format: 'obj' };
+  }
+  // Fall back to GLB
+  const glbPath = join(CACHE_DIR, `${id}.glb`);
+  if (existsSync(glbPath)) {
+    return { path: glbPath, format: 'glb' };
   }
   return null;
 }
@@ -175,7 +207,8 @@ export async function importIKEAToAssets(db, id) {
   }
 
   // Download the model first
-  const { path } = await downloadIKEAModel(id);
+  const result = await downloadIKEAModel(id);
+  const modelPath = result.objPath || result.path;
   
   // Check if already imported
   const existing = db.exec(
@@ -203,14 +236,14 @@ export async function importIKEAToAssets(db, id) {
       item.width,
       item.height,
       item.depth,
-      item.glbUrl,
+      item.objUrl || '',
       item.id,
     ]
   );
 
   // Get the inserted ID
-  const result = db.exec('SELECT id FROM assets ORDER BY id DESC LIMIT 1');
-  return result[0].values[0][0];
+  const insertResult = db.exec('SELECT id FROM assets ORDER BY id DESC LIMIT 1');
+  return insertResult[0].values[0][0];
 }
 
 export default {

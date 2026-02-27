@@ -366,14 +366,14 @@ router.post('/:id/duplicate', async (req, res) => {
       if (!newRoomId) continue;
 
       db.run(
-        `INSERT INTO walls (room_id, start_x, start_z, end_x, end_z, height, thickness, material, color)
+        `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, thickness, material, color)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           newRoomId,
           wall.start_x,
-          wall.start_z,
+          wall.start_y,
           wall.end_x,
-          wall.end_z,
+          wall.end_y,
           wall.height,
           wall.thickness,
           wall.material,
@@ -721,14 +721,14 @@ router.post('/import', upload.single('zipFile'), async (req, res) => {
       if (!newRoomId) continue;
 
       db.run(
-        `INSERT INTO walls (room_id, start_x, start_z, end_x, end_z, height, thickness, material, color)
+        `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, thickness, material, color)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           newRoomId,
           wall.start_x,
-          wall.start_z,
+          wall.start_y,
           wall.end_x,
-          wall.end_z,
+          wall.end_y,
           wall.height,
           wall.thickness,
           wall.material,

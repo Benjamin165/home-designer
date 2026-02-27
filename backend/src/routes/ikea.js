@@ -72,23 +72,27 @@ router.get('/items/:id', (req, res) => {
 
 /**
  * GET /api/ikea/models/:id
- * Download/serve a GLB model file
+ * Download/serve a model file (OBJ format from IKEA dataset)
  */
 router.get('/models/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
     // Check if already cached
-    let modelPath = getModelPath(id);
+    let modelInfo = getModelPath(id);
     
     // Download if not cached
-    if (!modelPath) {
+    if (!modelInfo) {
       const result = await downloadIKEAModel(id);
-      modelPath = result.path;
+      modelInfo = { path: result.objPath, format: 'obj' };
     }
     
+    // Set content type based on format
+    const contentType = modelInfo.format === 'glb' ? 'model/gltf-binary' : 'text/plain';
+    res.setHeader('Content-Type', contentType);
+    
     // Serve the file
-    res.sendFile(modelPath);
+    res.sendFile(modelInfo.path);
   } catch (error) {
     console.error('Error serving IKEA model:', error);
     res.status(500).json({ error: error.message || 'Failed to get IKEA model' });
