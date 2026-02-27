@@ -576,3 +576,64 @@ export const exportApi = {
     return response.blob();
   }
 };
+
+/**
+ * IKEA Furniture API methods
+ */
+export const ikeaApi = {
+  /**
+   * Get all IKEA catalog items
+   */
+  async getCatalog() {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/ikea/catalog`);
+    return response.json();
+  },
+
+  /**
+   * Search IKEA catalog
+   */
+  async search(query: string) {
+    const response = await fetchWithErrorHandling(
+      `${API_BASE_URL}/ikea/search?q=${encodeURIComponent(query)}`
+    );
+    return response.json();
+  },
+
+  /**
+   * Get details for a specific IKEA item
+   */
+  async getItem(id: string) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/ikea/items/${id}`);
+    return response.json();
+  },
+
+  /**
+   * Import an IKEA item into the assets library
+   */
+  async importItem(id: string) {
+    const response = await fetchWithErrorHandling(
+      `${API_BASE_URL}/ikea/import/${id}`,
+      { method: 'POST' }
+    );
+    return response.json();
+  },
+
+  /**
+   * Import all IKEA items into the assets library
+   */
+  async importAll() {
+    const response = await fetchWithErrorHandling(
+      `${API_BASE_URL}/ikea/import-all`,
+      { method: 'POST' },
+      120000 // 2 minute timeout
+    );
+    return response.json();
+  },
+
+  /**
+   * Get the GLB model URL for an IKEA item
+   */
+  getModelUrl(id: string) {
+    return `${API_BASE_URL}/ikea/models/${id}`;
+  },
+};

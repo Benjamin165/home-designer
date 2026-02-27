@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { assetsApi } from '../lib/api';
 import { useEditorStore } from '../store/editorStore';
-import { Package, Sofa, Lightbulb, Flower2, Frame, ChevronLeft, ChevronRight, Search, X, Sparkles, Star, Link as LinkIcon } from 'lucide-react';
+import { Package, Sofa, Lightbulb, Flower2, Frame, ChevronLeft, ChevronRight, Search, X, Sparkles, Star, Link as LinkIcon, ShoppingBag } from 'lucide-react';
 import AIGenerationModal from './AIGenerationModal';
 import URLImportModal from './URLImportModal';
 import AssetDetailsModal from './AssetDetailsModal';
+import IKEABrowser from './IKEABrowser';
 import { toast } from 'sonner';
 
 interface Asset {
@@ -38,6 +39,7 @@ export default function AssetLibrary() {
   const [showAIModal, setShowAIModal] = useState(false);
   const [showURLImportModal, setShowURLImportModal] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [showIKEA, setShowIKEA] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [isNarrowScreen, setIsNarrowScreen] = useState(false);
@@ -239,7 +241,29 @@ export default function AssetLibrary() {
           <LinkIcon className="w-4 h-4" />
           Import from URL
         </button>
+        <button
+          onClick={() => setShowIKEA(!showIKEA)}
+          className={`w-full px-3 py-2 rounded text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+            showIKEA 
+              ? 'bg-yellow-600 text-white' 
+              : 'bg-gray-700 text-white hover:bg-gray-600'
+          }`}
+        >
+          <ShoppingBag className="w-4 h-4" />
+          {showIKEA ? 'Hide IKEA' : 'Browse IKEA'}
+        </button>
       </div>
+
+      {/* IKEA Browser */}
+      {showIKEA && (
+        <div className="flex-1 overflow-hidden border-b border-gray-700">
+          <IKEABrowser 
+            onImport={(asset) => {
+              loadAssets(); // Refresh the asset list
+            }}
+          />
+        </div>
+      )}
 
       {/* Search bar */}
       <div className="px-4 py-2 border-b border-gray-700">

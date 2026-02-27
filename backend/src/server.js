@@ -15,6 +15,7 @@ import exportRouter from './routes/export.js';
 import lightsRouter from './routes/lights.js';
 import floorplansRouter from './routes/floorplans.js';
 import roomOperationsRouter from './routes/room-operations.js';
+import ikeaRouter from './routes/ikea.js';
 import { resetDatabase } from './db/connection.js';
 
 dotenv.config();
@@ -221,6 +222,7 @@ app.use('/api', roomOperationsRouter); // Handles /api/rooms/merge, /api/rooms/:
 app.use('/api', settingsRouter); // Handles /api/settings
 app.use('/api/ai', aiRouter); // Handles /api/ai/*
 app.use('/api/export', exportRouter); // Handles /api/export/*
+app.use('/api/ikea', ikeaRouter); // Handles /api/ikea/*
 
 // Error handling middleware
 app.use((err, req, res, next) => {
