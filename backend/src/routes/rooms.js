@@ -181,7 +181,13 @@ router.put('/rooms/:id', async (req, res) => {
       ceiling_color,
       position_x,
       position_y,
-      position_z
+      position_z,
+      // View settings
+      opacity,
+      show_floor,
+      show_ceiling,
+      show_walls,
+      view_mode
     } = req.body;
 
     const db = await getDatabase();
@@ -209,6 +215,11 @@ router.put('/rooms/:id', async (req, res) => {
            position_x = COALESCE(?, position_x),
            position_y = COALESCE(?, position_y),
            position_z = COALESCE(?, position_z),
+           opacity = COALESCE(?, opacity),
+           show_floor = COALESCE(?, show_floor),
+           show_ceiling = COALESCE(?, show_ceiling),
+           show_walls = COALESCE(?, show_walls),
+           view_mode = COALESCE(?, view_mode),
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       [
@@ -223,6 +234,11 @@ router.put('/rooms/:id', async (req, res) => {
         position_x !== undefined ? position_x : null,
         position_y !== undefined ? position_y : null,
         position_z !== undefined ? position_z : null,
+        opacity !== undefined ? opacity : null,
+        show_floor !== undefined ? (show_floor ? 1 : 0) : null,
+        show_ceiling !== undefined ? (show_ceiling ? 1 : 0) : null,
+        show_walls !== undefined ? (show_walls ? 1 : 0) : null,
+        view_mode || null,
         parseInt(id)
       ]
     );

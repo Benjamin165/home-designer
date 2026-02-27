@@ -18,9 +18,11 @@ interface WallMeshProps {
   roomPosX: number;
   roomPosZ: number;
   isCurrentFloor?: boolean;
+  opacity?: number;
+  wireframe?: boolean;
 }
 
-export function WallMesh({ wall, roomPosX: _roomPosX, roomPosZ: _roomPosZ, isCurrentFloor = true }: WallMeshProps) {
+export function WallMesh({ wall, roomPosX: _roomPosX, roomPosZ: _roomPosZ, isCurrentFloor = true, opacity, wireframe = false }: WallMeshProps) {
   const selectedWallId = useEditorStore((state: EditorState) => state.selectedWallId);
   const setSelectedWallId = useEditorStore((state: EditorState) => state.setSelectedWallId);
   const currentTool = useEditorStore((state: EditorState) => state.currentTool);
@@ -79,6 +81,9 @@ export function WallMesh({ wall, roomPosX: _roomPosX, roomPosZ: _roomPosZ, isCur
 
   const matProps = getMaterialProps();
 
+  // Calculate effective opacity
+  const effectiveOpacity = opacity ?? (isCurrentFloor ? 1.0 : 0.3);
+
   return (
     <mesh
       position={[centerX, wallHeight / 2, centerZ]}
@@ -92,8 +97,9 @@ export function WallMesh({ wall, roomPosX: _roomPosX, roomPosZ: _roomPosZ, isCur
         metalness={matProps.metalness}
         emissive={isSelected ? '#3b82f6' : '#000000'}
         emissiveIntensity={isSelected ? 0.3 : 0}
-        transparent={!isCurrentFloor}
-        opacity={isCurrentFloor ? 1.0 : 0.3}
+        wireframe={wireframe}
+        transparent={effectiveOpacity < 1}
+        opacity={effectiveOpacity}
       />
     </mesh>
   );

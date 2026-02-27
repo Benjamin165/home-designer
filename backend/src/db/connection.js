@@ -1,15 +1,17 @@
 import initSqlJs from 'sql.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const DB_PATH = join(__dirname, '../../database.db');
+const MIGRATIONS_PATH = join(__dirname, 'migrations');
 
 let db = null;
 let SQL = null;
+let migrationsRun = false;
 
 export async function getDatabase() {
   if (!db) {
@@ -47,9 +49,45 @@ export async function getDatabase() {
     };
 
     console.log('✓ Database connection established');
+    
+    // Run migrations if not already done
+    if (!migrationsRun) {
+      await runMigrations(db);
+      migrationsRun = true;
+    }
   }
 
   return db;
+}
+
+async function runMigrations(database) {
+  if (!existsSync(MIGRATIONS_PATH)) {
+    console.log('  No migrations directory found');
+    return;
+  }
+  
+  const files = readdirSync(MIGRATIONS_PATH).filter(f => f.endsWith('.js')).sort();
+  
+  if (files.length === 0) {
+    console.log('  No migrations to run');
+    return;
+  }
+  
+  console.log(`  Running ${files.length} migration(s)...`);
+  
+  for (const file of files) {
+    try {
+      const migrationPath = join(MIGRATIONS_PATH, file);
+      const migration = await import(`file://${migrationPath}`);
+      if (typeof migration.migrate === 'function') {
+        await migration.migrate(database);
+      }
+    } catch (error) {
+      console.error(`  Error running migration ${file}:`, error.message);
+    }
+  }
+  
+  saveDatabase();
 }
 
 export function saveDatabase() {

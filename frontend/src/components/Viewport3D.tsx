@@ -12,6 +12,10 @@ import ContextMenu, { type ContextMenuItem } from './ContextMenu';
 import { Armchair, Settings, Trash2, Copy, Eye } from 'lucide-react';
 import { formatLength, formatArea } from '../lib/units';
 
+interface Viewport3DProps {
+  onOpenSettings?: () => void;
+}
+
 interface DragState {
   isDrawing: boolean;
   startPoint: { x: number; z: number } | null;
@@ -1023,72 +1027,102 @@ function RoomMesh({ room, isCurrentFloor = true }: { room: any; isCurrentFloor?:
     window.dispatchEvent(event);
   };
 
+  // View settings with defaults
+  const roomOpacity = room.opacity ?? 1.0;
+  const showFloor = room.show_floor ?? true;
+  const showCeiling = room.show_ceiling ?? true;
+  const showWalls = room.show_walls ?? true;
+  const viewMode = room.view_mode || 'solid';
+  const isWireframe = viewMode === 'wireframe';
+  const isXray = viewMode === 'xray';
+  const effectiveOpacity = isXray ? Math.min(roomOpacity, 0.3) : (isCurrentFloor ? roomOpacity : Math.min(roomOpacity, 0.3));
+
+  // Handle right-click on room
+  const handleRoomContextMenu = (e: any) => {
+    e.stopPropagation();
+    const domEvent = e.nativeEvent as MouseEvent;
+    // Dispatch event to parent to show context menu
+    window.dispatchEvent(new CustomEvent('roomContextMenu', {
+      detail: {
+        x: domEvent.clientX,
+        y: domEvent.clientY,
+        room: room,
+      }
+    }));
+  };
+
   return (
-    <group position={[posX, 0, posZ]} onClick={handleClick}>
+    <group position={[posX, 0, posZ]} onClick={handleClick} onContextMenu={handleRoomContextMenu}>
       {/* Floor */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0.01, 0]}
-        onPointerEnter={handlePointerEnter}
-        onPointerLeave={handlePointerLeave}
-      >
-        <planeGeometry args={[width, depth]} />
-        <meshStandardMaterial
-          color={(() => {
-            // Use floor_material to determine appearance
-            const material = room.floor_material || 'hardwood';
-            switch (material) {
-              case 'hardwood':
-                return '#8B4513'; // Brown wood color
-              case 'tile':
-                return '#E8E8E8'; // Light gray tile
-              case 'carpet':
-                return '#A0522D'; // Sienna carpet
-              case 'marble':
-                return '#F5F5F5'; // White marble
-              case 'laminate':
-                return '#D2691E'; // Chocolate laminate
-              case 'concrete':
-                return '#808080'; // Gray concrete
-              default:
-                return room.floor_color || '#d1d5db';
-            }
-          })()}
-          roughness={(() => {
-            const material = room.floor_material || 'hardwood';
-            switch (material) {
-              case 'marble':
-              case 'tile':
-                return 0.2; // Smooth, shiny
-              case 'concrete':
-                return 0.8; // Rough
-              case 'carpet':
-                return 0.9; // Very rough
-              case 'hardwood':
-              case 'laminate':
-                return 0.4; // Semi-gloss
-              default:
-                return 0.5;
-            }
-          })()}
-          transparent={!isCurrentFloor}
-          opacity={isCurrentFloor ? 1.0 : 0.3}
-        />
-      </mesh>
+      {showFloor && (
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0.01, 0]}
+          onPointerEnter={handlePointerEnter}
+          onPointerLeave={handlePointerLeave}
+        >
+          <planeGeometry args={[width, depth]} />
+          <meshStandardMaterial
+            color={(() => {
+              // Use floor_material to determine appearance
+              const material = room.floor_material || 'hardwood';
+              switch (material) {
+                case 'hardwood':
+                  return '#8B4513'; // Brown wood color
+                case 'tile':
+                  return '#E8E8E8'; // Light gray tile
+                case 'carpet':
+                  return '#A0522D'; // Sienna carpet
+                case 'marble':
+                  return '#F5F5F5'; // White marble
+                case 'laminate':
+                  return '#D2691E'; // Chocolate laminate
+                case 'concrete':
+                  return '#808080'; // Gray concrete
+                default:
+                  return room.floor_color || '#d1d5db';
+              }
+            })()}
+            roughness={(() => {
+              const material = room.floor_material || 'hardwood';
+              switch (material) {
+                case 'marble':
+                case 'tile':
+                  return 0.2; // Smooth, shiny
+                case 'concrete':
+                  return 0.8; // Rough
+                case 'carpet':
+                  return 0.9; // Very rough
+                case 'hardwood':
+                case 'laminate':
+                  return 0.4; // Semi-gloss
+                default:
+                  return 0.5;
+              }
+            })()}
+            wireframe={isWireframe}
+            transparent={effectiveOpacity < 1}
+            opacity={effectiveOpacity}
+          />
+        </mesh>
+      )}
 
       {/* Ceiling */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, height, 0]}>
-        <planeGeometry args={[width, depth]} />
-        <meshStandardMaterial
-          color={room.ceiling_color || "#f3f4f6"}
-          side={THREE.DoubleSide}
-          transparent={!isCurrentFloor}
-          opacity={isCurrentFloor ? 1.0 : 0.3}
-        />
-      </mesh>
+      {showCeiling && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, height, 0]}>
+          <planeGeometry args={[width, depth]} />
+          <meshStandardMaterial
+            color={room.ceiling_color || "#f3f4f6"}
+            side={THREE.DoubleSide}
+            wireframe={isWireframe}
+            transparent={effectiveOpacity < 1}
+            opacity={effectiveOpacity}
+          />
+        </mesh>
+      )}
 
       {/* Walls */}
-      {walls.length > 0 ? (
+      {showWalls && walls.length > 0 ? (
         // Render walls from database
         walls.map((wall) => (
           <WallMesh
@@ -1097,36 +1131,38 @@ function RoomMesh({ room, isCurrentFloor = true }: { room: any; isCurrentFloor?:
             roomPosX={posX}
             roomPosZ={posZ}
             isCurrentFloor={isCurrentFloor}
+            opacity={effectiveOpacity}
+            wireframe={isWireframe}
           />
         ))
-      ) : (
+      ) : showWalls ? (
         // Fallback: render default walls if no database walls exist
         <>
           {/* Front wall */}
           <mesh position={[0, height / 2, depth / 2]}>
             <boxGeometry args={[width, height, 0.15]} />
-            <meshStandardMaterial color="#e5e7eb" />
+            <meshStandardMaterial color="#e5e7eb" wireframe={isWireframe} transparent={effectiveOpacity < 1} opacity={effectiveOpacity} />
           </mesh>
 
           {/* Back wall */}
           <mesh position={[0, height / 2, -depth / 2]}>
             <boxGeometry args={[width, height, 0.15]} />
-            <meshStandardMaterial color="#e5e7eb" />
+            <meshStandardMaterial color="#e5e7eb" wireframe={isWireframe} transparent={effectiveOpacity < 1} opacity={effectiveOpacity} />
           </mesh>
 
           {/* Left wall */}
           <mesh position={[-width / 2, height / 2, 0]}>
             <boxGeometry args={[0.15, height, depth]} />
-            <meshStandardMaterial color="#e5e7eb" />
+            <meshStandardMaterial color="#e5e7eb" wireframe={isWireframe} transparent={effectiveOpacity < 1} opacity={effectiveOpacity} />
           </mesh>
 
           {/* Right wall */}
           <mesh position={[width / 2, height / 2, 0]}>
             <boxGeometry args={[0.15, height, depth]} />
-            <meshStandardMaterial color="#e5e7eb" />
+            <meshStandardMaterial color="#e5e7eb" wireframe={isWireframe} transparent={effectiveOpacity < 1} opacity={effectiveOpacity} />
           </mesh>
         </>
-      )}
+      ) : null}
 
       {/* Draggable edge handles - only show when room is selected */}
       {isSelected && currentTool === 'select' && (
@@ -1465,7 +1501,7 @@ function FurniturePreview({ asset, position }: { asset: any; position: { x: numb
   );
 }
 
-export default function Viewport3D() {
+export default function Viewport3D({ onOpenSettings }: Viewport3DProps = {}) {
   const draggingAsset = useEditorStore((state) => state.draggingAsset);
   const currentFloorId = useEditorStore((state) => state.currentFloorId);
   const rooms = useEditorStore((state) => state.rooms);
@@ -1481,8 +1517,9 @@ export default function Viewport3D() {
     visible: boolean;
     x: number;
     y: number;
-    type: 'empty' | 'furniture';
+    type: 'empty' | 'furniture' | 'room';
     furniture?: any;
+    room?: any;
   }>({
     visible: false,
     x: 0,
@@ -1513,8 +1550,23 @@ export default function Viewport3D() {
       console.log('[DEBUG Viewport3D] Context menu state set to visible');
     };
 
+    const handleRoomContextMenuEvent = (event: any) => {
+      const { x, y, room } = event.detail;
+      setContextMenu({
+        visible: true,
+        x,
+        y,
+        type: 'room',
+        room,
+      });
+    };
+
     window.addEventListener('canvasContextMenu', handleCanvasContextMenuEvent);
-    return () => window.removeEventListener('canvasContextMenu', handleCanvasContextMenuEvent);
+    window.addEventListener('roomContextMenu', handleRoomContextMenuEvent);
+    return () => {
+      window.removeEventListener('canvasContextMenu', handleCanvasContextMenuEvent);
+      window.removeEventListener('roomContextMenu', handleRoomContextMenuEvent);
+    };
   }, []);
 
   // Listen for room hover events
@@ -1704,6 +1756,51 @@ export default function Viewport3D() {
           divider: true,
         },
       ];
+    } else if (contextMenu.type === 'room' && contextMenu.room) {
+      // Room context menu
+      const room = contextMenu.room;
+      return [
+        {
+          label: 'Room Properties',
+          icon: <Eye className="w-4 h-4" />,
+          onClick: () => {
+            setSelectedRoomId(room.id);
+            toast.success('Room selected - view properties in the right panel');
+          },
+        },
+        {
+          label: 'Toggle X-Ray',
+          icon: <Settings className="w-4 h-4" />,
+          onClick: async () => {
+            const currentMode = room.view_mode || 'solid';
+            const newMode = currentMode === 'xray' ? 'solid' : 'xray';
+            try {
+              await roomsApi.update(room.id, { view_mode: newMode });
+              const updateRoom = useEditorStore.getState().updateRoom;
+              updateRoom(room.id, { view_mode: newMode });
+              toast.success(`X-Ray mode ${newMode === 'xray' ? 'enabled' : 'disabled'}`);
+            } catch (error) {
+              console.error('Error toggling x-ray:', error);
+            }
+          },
+        },
+        {
+          label: 'Hide Walls',
+          icon: <Eye className="w-4 h-4" />,
+          onClick: async () => {
+            const currentShowWalls = room.show_walls ?? true;
+            try {
+              await roomsApi.update(room.id, { show_walls: !currentShowWalls });
+              const updateRoom = useEditorStore.getState().updateRoom;
+              updateRoom(room.id, { show_walls: !currentShowWalls });
+              toast.success(`Walls ${!currentShowWalls ? 'shown' : 'hidden'}`);
+            } catch (error) {
+              console.error('Error toggling walls:', error);
+            }
+          },
+          divider: true,
+        },
+      ];
     } else {
       // Empty space menu
       const items = [
@@ -1716,11 +1813,14 @@ export default function Viewport3D() {
           },
         },
         {
-          label: 'View Settings',
+          label: 'Global Settings',
           icon: <Settings className="w-4 h-4" />,
           onClick: () => {
-            // Trigger settings modal - for now just show toast
-            toast.info('Settings panel coming soon');
+            if (onOpenSettings) {
+              onOpenSettings();
+            } else {
+              toast.info('Settings panel not available');
+            }
           },
         },
       ];

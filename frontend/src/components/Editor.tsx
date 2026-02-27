@@ -1094,7 +1094,7 @@ function Editor() {
 
           {/* 3D Viewport */}
           <div className="flex-1 relative">
-            <Viewport3D />
+            <Viewport3D onOpenSettings={() => setShowSettings(true)} />
 
             {/* Dimension Display Overlay (during drawing) */}
             {dimensionText && (

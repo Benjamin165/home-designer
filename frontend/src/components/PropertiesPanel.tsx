@@ -11,7 +11,7 @@ interface PropertiesPanelProps {
 }
 
 function PropertiesPanel({ projectName }: PropertiesPanelProps) {
-  const { selectedRoomId, setSelectedRoomId, selectedWallId, setSelectedWallId, selectedFurnitureId, setSelectedFurnitureId, selectedFurnitureIds, rooms, floors, currentFloorId, furniturePlacements, setRooms, setFurniturePlacements, updateFurniturePlacement, unitSystem } = useEditorStore();
+  const { selectedRoomId, setSelectedRoomId, selectedWallId, setSelectedWallId, selectedFurnitureId, setSelectedFurnitureId, selectedFurnitureIds, rooms, floors, currentFloorId, furniturePlacements, setRooms, setFurniturePlacements, updateFurniturePlacement, updateRoom, unitSystem } = useEditorStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ceilingHeight, setCeilingHeight] = useState<string>('');
@@ -941,6 +941,120 @@ function PropertiesPanel({ projectName }: PropertiesPanelProps) {
                   <option value="laminate">Laminate</option>
                   <option value="concrete">Concrete</option>
                 </select>
+              </div>
+
+              {/* View Settings */}
+              <div className="border-t border-gray-700 pt-4">
+                <label className="block text-sm font-medium text-gray-400 mb-3">
+                  👁️ View Settings
+                </label>
+
+                {/* Opacity Slider */}
+                <div className="mb-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs text-gray-400">Opacity</span>
+                    <span className="text-xs text-white font-mono">{Math.round((selectedRoom.opacity ?? 1) * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={Math.round((selectedRoom.opacity ?? 1) * 100)}
+                    onChange={async (e) => {
+                      const opacity = parseInt(e.target.value) / 100;
+                      try {
+                        await roomsApi.update(selectedRoom.id, { opacity });
+                        updateRoom(selectedRoom.id, { opacity });
+                      } catch (error) {
+                        console.error('Error updating opacity:', error);
+                      }
+                    }}
+                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
+                </div>
+
+                {/* View Mode */}
+                <div className="mb-4">
+                  <span className="text-xs text-gray-400 block mb-2">View Mode</span>
+                  <div className="grid grid-cols-3 gap-1">
+                    {(['solid', 'wireframe', 'xray'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={async () => {
+                          try {
+                            await roomsApi.update(selectedRoom.id, { view_mode: mode });
+                            updateRoom(selectedRoom.id, { view_mode: mode });
+                            toast.success(`View mode: ${mode}`);
+                          } catch (error) {
+                            console.error('Error updating view mode:', error);
+                          }
+                        }}
+                        className={`px-2 py-1.5 text-xs rounded transition-colors capitalize ${
+                          (selectedRoom.view_mode || 'solid') === mode
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Show/Hide Toggles */}
+                <div className="space-y-2">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-xs text-gray-300">Show Floor</span>
+                    <input
+                      type="checkbox"
+                      checked={selectedRoom.show_floor ?? true}
+                      onChange={async (e) => {
+                        const show_floor = e.target.checked;
+                        try {
+                          await roomsApi.update(selectedRoom.id, { show_floor });
+                          updateRoom(selectedRoom.id, { show_floor });
+                        } catch (error) {
+                          console.error('Error updating show_floor:', error);
+                        }
+                      }}
+                      className="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500"
+                    />
+                  </label>
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-xs text-gray-300">Show Ceiling</span>
+                    <input
+                      type="checkbox"
+                      checked={selectedRoom.show_ceiling ?? true}
+                      onChange={async (e) => {
+                        const show_ceiling = e.target.checked;
+                        try {
+                          await roomsApi.update(selectedRoom.id, { show_ceiling });
+                          updateRoom(selectedRoom.id, { show_ceiling });
+                        } catch (error) {
+                          console.error('Error updating show_ceiling:', error);
+                        }
+                      }}
+                      className="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500"
+                    />
+                  </label>
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-xs text-gray-300">Show Walls</span>
+                    <input
+                      type="checkbox"
+                      checked={selectedRoom.show_walls ?? true}
+                      onChange={async (e) => {
+                        const show_walls = e.target.checked;
+                        try {
+                          await roomsApi.update(selectedRoom.id, { show_walls });
+                          updateRoom(selectedRoom.id, { show_walls });
+                        } catch (error) {
+                          console.error('Error updating show_walls:', error);
+                        }
+                      }}
+                      className="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500"
+                    />
+                  </label>
+                </div>
               </div>
 
               {/* Colors */}
