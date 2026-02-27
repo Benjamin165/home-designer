@@ -235,6 +235,31 @@ export const roomsApi = {
     });
     return response.json();
   },
+
+  // Polygon room methods
+  async createPolygon(floorId: number, data: {
+    vertices: Array<{ x: number; y: number }>;
+    name?: string;
+    floor_material?: string;
+    floor_color?: string;
+    ceiling_height?: number;
+    ceiling_material?: string;
+    ceiling_color?: string;
+  }) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/floors/${floorId}/rooms/polygon`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+
+  async updateVertices(id: number, vertices: Array<{ x: number; y: number }>) {
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/rooms/${id}/vertices`, {
+      method: 'PUT',
+      body: JSON.stringify({ vertices }),
+    });
+    return response.json();
+  },
 };
 
 // Walls API methods

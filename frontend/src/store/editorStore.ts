@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type EditorTool = 'select' | 'draw-wall' | 'measure' | 'place-furniture' | 'place-light' | 'pan' | 'first-person';
+export type EditorTool = 'select' | 'draw-wall' | 'draw-polygon' | 'measure' | 'place-furniture' | 'place-light' | 'pan' | 'first-person';
 
 export type LightType = 'point' | 'spot' | 'area';
 

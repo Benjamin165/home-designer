@@ -34,6 +34,7 @@ import {
   Grid3x3,
   Lightbulb,
   User,
+  Pentagon,
 } from 'lucide-react';
 
 interface Project {
@@ -182,6 +183,46 @@ function Editor() {
     return () => {
       console.log('[DEBUG Editor] Removing createRoom event listener');
       window.removeEventListener('createRoom', handleCreateRoom);
+    };
+  }, [currentFloorId]);
+
+  // Listen for polygon room creation events from 3D viewport
+  useEffect(() => {
+    const handleCreatePolygonRoom = async (event: any) => {
+      console.log('[DEBUG Editor] createPolygonRoom event received!', event.detail);
+      const { vertices } = event.detail;
+      
+      if (!currentFloorId || !vertices || vertices.length < 3) {
+        toast.error('Cannot create room', {
+          description: 'At least 3 vertices are required for a polygon room.',
+        });
+        return;
+      }
+
+      try {
+        const result = await roomsApi.createPolygon(currentFloorId, {
+          vertices,
+          name: 'Polygon Room',
+          floor_material: 'hardwood',
+          ceiling_height: 2.8,
+        });
+
+        // Add the new room to the store
+        const addRoom = useEditorStore.getState().addRoom;
+        addRoom(result.room);
+
+        toast.success('Polygon room created!', {
+          description: `Created room with ${vertices.length} vertices`,
+        });
+      } catch (error) {
+        console.error('Error creating polygon room:', error);
+        toast.error('Failed to create polygon room');
+      }
+    };
+
+    window.addEventListener('createPolygonRoom', handleCreatePolygonRoom);
+    return () => {
+      window.removeEventListener('createPolygonRoom', handleCreatePolygonRoom);
     };
   }, [currentFloorId]);
 
@@ -981,9 +1022,20 @@ function Editor() {
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-300 hover:bg-gray-600'
                 }`}
-                title="Draw Wall"
+                title="Draw Rectangular Room"
               >
                 <Square className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => handleToolSelect('draw-polygon')}
+                className={`p-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  currentTool === 'draw-polygon'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-600'
+                }`}
+                title="Draw Polygon Room (click corners, double-click to close)"
+              >
+                <Pentagon className="w-5 h-5" />
               </button>
               <button
                 onClick={handleOpenDimensionsModal}
@@ -1170,7 +1222,9 @@ function Editor() {
               <div>
                 <span className="text-gray-400">Tool: </span>
                 <span className="font-medium capitalize">
-                  {currentTool === 'draw-wall' ? 'Draw Wall' : currentTool}
+                  {currentTool === 'draw-wall' ? 'Draw Room' : 
+                   currentTool === 'draw-polygon' ? 'Draw Polygon' : 
+                   currentTool}
                 </span>
               </div>
               <div>

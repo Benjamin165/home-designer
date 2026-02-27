@@ -302,6 +302,238 @@ router.delete('/rooms/:id', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/floors/:floorId/rooms/polygon - Create a polygon room
+ * 
+ * Body: {
+ *   vertices: [{x: number, y: number}, ...], // At least 3 vertices
+ *   name?: string,
+ *   floor_material?: string,
+ *   ceiling_height?: number,
+ * }
+ */
+router.post('/floors/:floorId/rooms/polygon', async (req, res) => {
+  try {
+    const { floorId } = req.params;
+    const {
+      vertices,
+      name,
+      floor_material,
+      floor_color,
+      ceiling_height,
+      ceiling_material,
+      ceiling_color,
+    } = req.body;
+
+    if (!vertices || !Array.isArray(vertices) || vertices.length < 3) {
+      return res.status(400).json({ error: 'At least 3 vertices are required for a polygon room' });
+    }
+
+    // Validate vertices
+    for (let i = 0; i < vertices.length; i++) {
+      if (typeof vertices[i].x !== 'number' || typeof vertices[i].y !== 'number') {
+        return res.status(400).json({ error: `Vertex ${i} must have numeric x and y properties` });
+      }
+    }
+
+    const db = await getDatabase();
+
+    // Verify floor exists
+    const floorCheck = db.exec('SELECT id FROM floors WHERE id = ?', [parseInt(floorId)]);
+    if (floorCheck.length === 0 || floorCheck[0].values.length === 0) {
+      return res.status(404).json({ error: 'Floor not found' });
+    }
+
+    // Calculate bounding box for position and approximate dimensions
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    vertices.forEach(v => {
+      minX = Math.min(minX, v.x);
+      maxX = Math.max(maxX, v.x);
+      minY = Math.min(minY, v.y);
+      maxY = Math.max(maxY, v.y);
+    });
+
+    const width = maxX - minX;
+    const depth = maxY - minY;
+    const centerX = (minX + maxX) / 2;
+    const centerZ = (minY + maxY) / 2;
+
+    // Store dimensions_json with vertices
+    const dimensionsJson = JSON.stringify({
+      width,
+      depth,
+      vertices: vertices.map(v => ({ x: v.x - centerX, y: v.y - centerZ })) // Store relative to center
+    });
+
+    // Insert polygon room
+    db.run(
+      `INSERT INTO rooms (
+        floor_id, name, dimensions_json, room_type, vertices,
+        floor_material, floor_color, ceiling_height, ceiling_material, ceiling_color,
+        position_x, position_y, position_z,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, 'polygon', ?, ?, ?, ?, ?, ?, ?, 0, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [
+        parseInt(floorId),
+        name || 'Polygon Room',
+        dimensionsJson,
+        JSON.stringify(vertices.map(v => ({ x: v.x - centerX, y: v.y - centerZ }))),
+        floor_material || 'hardwood',
+        floor_color || null,
+        ceiling_height || 2.8,
+        ceiling_material || null,
+        ceiling_color || null,
+        centerX,
+        centerZ,
+      ]
+    );
+
+    // Get the inserted room
+    const result = db.exec('SELECT * FROM rooms ORDER BY id DESC LIMIT 1');
+
+    if (result.length > 0 && result[0].values.length > 0) {
+      const columns = result[0].columns;
+      const row = result[0].values[0];
+      const room = {};
+      columns.forEach((col, idx) => {
+        room[col] = row[idx];
+      });
+
+      // Parse JSON fields
+      if (room.dimensions_json) {
+        try { room.dimensions_json = JSON.parse(room.dimensions_json); } catch (e) {}
+      }
+      if (room.vertices) {
+        try { room.vertices = JSON.parse(room.vertices); } catch (e) {}
+      }
+
+      // Create walls from vertices (connect each vertex to the next)
+      const roomHeight = room.ceiling_height || 2.8;
+      const defaultWallColor = '#e5e7eb';
+      const relVertices = room.vertices || [];
+
+      for (let i = 0; i < relVertices.length; i++) {
+        const start = relVertices[i];
+        const end = relVertices[(i + 1) % relVertices.length];
+        
+        db.run(
+          `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, color)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [room.id, start.x, start.y, end.x, end.y, roomHeight, defaultWallColor]
+        );
+      }
+
+      saveDatabase();
+      res.status(201).json({ room });
+    } else {
+      throw new Error('Failed to retrieve created room');
+    }
+  } catch (error) {
+    console.error('Error creating polygon room:', error);
+    res.status(500).json({ error: 'Failed to create polygon room' });
+  }
+});
+
+/**
+ * PUT /api/rooms/:id/vertices - Update polygon room vertices
+ */
+router.put('/rooms/:id/vertices', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { vertices } = req.body;
+
+    if (!vertices || !Array.isArray(vertices) || vertices.length < 3) {
+      return res.status(400).json({ error: 'At least 3 vertices are required' });
+    }
+
+    const db = await getDatabase();
+
+    // Check room exists and is polygon type
+    const checkResult = db.exec('SELECT * FROM rooms WHERE id = ?', [parseInt(id)]);
+    if (checkResult.length === 0 || checkResult[0].values.length === 0) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Calculate new bounding box
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    vertices.forEach(v => {
+      minX = Math.min(minX, v.x);
+      maxX = Math.max(maxX, v.x);
+      minY = Math.min(minY, v.y);
+      maxY = Math.max(maxY, v.y);
+    });
+
+    const width = maxX - minX;
+    const depth = maxY - minY;
+    const centerX = (minX + maxX) / 2;
+    const centerZ = (minY + maxY) / 2;
+
+    // Update room with new vertices (store relative to center)
+    const relativeVertices = vertices.map(v => ({ x: v.x - centerX, y: v.y - centerZ }));
+    const dimensionsJson = JSON.stringify({ width, depth, vertices: relativeVertices });
+
+    db.run(
+      `UPDATE rooms SET
+        dimensions_json = ?,
+        vertices = ?,
+        room_type = 'polygon',
+        position_x = ?,
+        position_z = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?`,
+      [
+        dimensionsJson,
+        JSON.stringify(relativeVertices),
+        centerX,
+        centerZ,
+        parseInt(id),
+      ]
+    );
+
+    // Recreate walls from new vertices
+    db.run('DELETE FROM walls WHERE room_id = ?', [parseInt(id)]);
+
+    // Get room for ceiling height
+    const roomResult = db.exec('SELECT ceiling_height FROM rooms WHERE id = ?', [parseInt(id)]);
+    const roomHeight = roomResult[0]?.values[0]?.[0] || 2.8;
+    const defaultWallColor = '#e5e7eb';
+
+    for (let i = 0; i < relativeVertices.length; i++) {
+      const start = relativeVertices[i];
+      const end = relativeVertices[(i + 1) % relativeVertices.length];
+      
+      db.run(
+        `INSERT INTO walls (room_id, start_x, start_y, end_x, end_y, height, color)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [parseInt(id), start.x, start.y, end.x, end.y, roomHeight, defaultWallColor]
+      );
+    }
+
+    saveDatabase();
+
+    // Get updated room
+    const result = db.exec('SELECT * FROM rooms WHERE id = ?', [parseInt(id)]);
+    const columns = result[0].columns;
+    const row = result[0].values[0];
+    const room = {};
+    columns.forEach((col, idx) => {
+      room[col] = row[idx];
+    });
+
+    if (room.dimensions_json) {
+      try { room.dimensions_json = JSON.parse(room.dimensions_json); } catch (e) {}
+    }
+    if (room.vertices) {
+      try { room.vertices = JSON.parse(room.vertices); } catch (e) {}
+    }
+
+    res.json({ room });
+  } catch (error) {
+    console.error('Error updating room vertices:', error);
+    res.status(500).json({ error: 'Failed to update room vertices' });
+  }
+});
+
 // GET /api/rooms/:id/furniture - Get furniture in a room
 router.get('/rooms/:id/furniture', async (req, res) => {
   try {

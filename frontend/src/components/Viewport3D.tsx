@@ -8,6 +8,7 @@ import { WallMesh } from './WallMesh';
 import { LightMesh } from './LightMesh';
 import { FirstPersonControls, FirstPersonOverlay } from './FirstPersonControls';
 import { FloorMaterial, CeilingMaterial } from './RoomMaterials';
+import { PolygonFloor, PolygonCeiling, PolygonWalls } from './PolygonRoomMesh';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { Sun, Moon } from 'lucide-react';
@@ -173,6 +174,10 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
     asset: any;
     position: { x: number; z: number };
   } | null>(null);
+
+  // Polygon drawing state
+  const [polygonVertices, setPolygonVertices] = useState<Array<{ x: number; y: number }>>([]);
+  const [polygonCurrentPoint, setPolygonCurrentPoint] = useState<{ x: number; y: number } | null>(null);
 
   // Animated lighting intensities
   const [ambientIntensity, setAmbientIntensity] = useState(0.5);
@@ -713,6 +718,123 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
     };
   }, [currentTool, camera, gl, rooms]);
 
+  // Polygon drawing tool handlers
+  useEffect(() => {
+    if (currentTool !== 'draw-polygon') {
+      // Clear polygon vertices when switching away from polygon tool
+      if (polygonVertices.length > 0) {
+        setPolygonVertices([]);
+        setPolygonCurrentPoint(null);
+      }
+      return;
+    }
+
+    const canvas = gl.domElement;
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+
+    // Helper to get ground intersection
+    const getGroundIntersection = (clientX: number, clientY: number) => {
+      const rect = canvas.getBoundingClientRect();
+      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(pointer, camera);
+      const planeGeometry = new THREE.PlaneGeometry(100, 100);
+      const planeMesh = new THREE.Mesh(planeGeometry);
+      planeMesh.rotation.x = -Math.PI / 2;
+      planeMesh.position.set(0, 0, 0);
+      planeMesh.updateMatrixWorld();
+
+      const intersects = raycaster.intersectObject(planeMesh);
+      if (intersects.length > 0) {
+        return intersects[0].point;
+      }
+      return null;
+    };
+
+    const handleClick = (e: MouseEvent) => {
+      if (e.button !== 0) return; // Only left-click
+
+      const point = getGroundIntersection(e.clientX, e.clientY);
+      if (!point) return;
+
+      // Snap to grid (0.5m increments)
+      const snappedX = Math.round(point.x * 2) / 2;
+      const snappedZ = Math.round(point.z * 2) / 2;
+
+      // Check if clicking near the first vertex to close the polygon
+      if (polygonVertices.length >= 3) {
+        const firstVertex = polygonVertices[0];
+        const distance = Math.sqrt(
+          Math.pow(snappedX - firstVertex.x, 2) + Math.pow(snappedZ - firstVertex.y, 2)
+        );
+        if (distance < 0.5) {
+          // Close the polygon - create the room
+          window.dispatchEvent(
+            new CustomEvent('createPolygonRoom', { detail: { vertices: polygonVertices } })
+          );
+          setPolygonVertices([]);
+          setPolygonCurrentPoint(null);
+          return;
+        }
+      }
+
+      // Add vertex
+      setPolygonVertices(prev => [...prev, { x: snappedX, y: snappedZ }]);
+    };
+
+    const handleDoubleClick = (e: MouseEvent) => {
+      // Double-click to finish polygon (if at least 3 vertices)
+      if (polygonVertices.length >= 3) {
+        window.dispatchEvent(
+          new CustomEvent('createPolygonRoom', { detail: { vertices: polygonVertices } })
+        );
+        setPolygonVertices([]);
+        setPolygonCurrentPoint(null);
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const point = getGroundIntersection(e.clientX, e.clientY);
+      if (point) {
+        const snappedX = Math.round(point.x * 2) / 2;
+        const snappedZ = Math.round(point.z * 2) / 2;
+        setPolygonCurrentPoint({ x: snappedX, y: snappedZ });
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Cancel polygon drawing
+        setPolygonVertices([]);
+        setPolygonCurrentPoint(null);
+      } else if (e.key === 'Enter' && polygonVertices.length >= 3) {
+        // Finish polygon
+        window.dispatchEvent(
+          new CustomEvent('createPolygonRoom', { detail: { vertices: polygonVertices } })
+        );
+        setPolygonVertices([]);
+        setPolygonCurrentPoint(null);
+      } else if ((e.key === 'Backspace' || e.key === 'Delete') && polygonVertices.length > 0) {
+        // Remove last vertex
+        setPolygonVertices(prev => prev.slice(0, -1));
+      }
+    };
+
+    canvas.addEventListener('click', handleClick);
+    canvas.addEventListener('dblclick', handleDoubleClick);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      canvas.removeEventListener('click', handleClick);
+      canvas.removeEventListener('dblclick', handleDoubleClick);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [currentTool, camera, gl, polygonVertices]);
+
   return (
     <>
       {/* Ambient lighting */}
@@ -814,6 +936,80 @@ function Scene({ onFurnitureContextMenu }: { onFurnitureContextMenu?: (e: any, f
           </mesh>
         );
       })()}
+
+      {/* Polygon drawing preview */}
+      {currentTool === 'draw-polygon' && polygonVertices.length > 0 && (
+        <group>
+          {/* Draw lines between vertices */}
+          {polygonVertices.map((vertex, i) => {
+            const nextVertex = polygonVertices[(i + 1) % polygonVertices.length];
+            if (i === polygonVertices.length - 1 && polygonCurrentPoint) {
+              // Last vertex to current mouse position
+              return (
+                <line key={`line-${i}`}>
+                  <bufferGeometry>
+                    <bufferAttribute
+                      attach="attributes-position"
+                      count={2}
+                      array={new Float32Array([vertex.x, 0.05, vertex.y, polygonCurrentPoint.x, 0.05, polygonCurrentPoint.y])}
+                      itemSize={3}
+                    />
+                  </bufferGeometry>
+                  <lineBasicMaterial color="#3b82f6" linewidth={2} />
+                </line>
+              );
+            }
+            // Draw line to next vertex
+            return (
+              <line key={`line-${i}`}>
+                <bufferGeometry>
+                  <bufferAttribute
+                    attach="attributes-position"
+                    count={2}
+                    array={new Float32Array([vertex.x, 0.05, vertex.y, nextVertex.x, 0.05, nextVertex.y])}
+                    itemSize={3}
+                  />
+                </bufferGeometry>
+                <lineBasicMaterial color="#3b82f6" linewidth={2} />
+              </line>
+            );
+          })}
+          
+          {/* Draw vertex markers */}
+          {polygonVertices.map((vertex, i) => (
+            <mesh key={`vertex-${i}`} position={[vertex.x, 0.05, vertex.y]}>
+              <sphereGeometry args={[0.15, 16, 16]} />
+              <meshBasicMaterial color={i === 0 ? '#10b981' : '#3b82f6'} />
+            </mesh>
+          ))}
+          
+          {/* Current mouse position marker */}
+          {polygonCurrentPoint && (
+            <mesh position={[polygonCurrentPoint.x, 0.05, polygonCurrentPoint.y]}>
+              <sphereGeometry args={[0.1, 16, 16]} />
+              <meshBasicMaterial color="#60a5fa" transparent opacity={0.7} />
+            </mesh>
+          )}
+          
+          {/* Preview closing line to first vertex */}
+          {polygonVertices.length >= 2 && polygonCurrentPoint && (
+            <line>
+              <bufferGeometry>
+                <bufferAttribute
+                  attach="attributes-position"
+                  count={2}
+                  array={new Float32Array([
+                    polygonCurrentPoint.x, 0.05, polygonCurrentPoint.y,
+                    polygonVertices[0].x, 0.05, polygonVertices[0].y
+                  ])}
+                  itemSize={3}
+                />
+              </bufferGeometry>
+              <lineBasicMaterial color="#10b981" linewidth={1} transparent opacity={0.5} />
+            </line>
+          )}
+        </group>
+      )}
 
       {/* Render actual rooms */}
       {rooms.map((room) => (
@@ -1203,6 +1399,10 @@ function RoomMesh({ room, isCurrentFloor = true }: { room: any; isCurrentFloor?:
   const isXray = viewMode === 'xray';
   const effectiveOpacity = isXray ? Math.min(roomOpacity, 0.3) : (isCurrentFloor ? roomOpacity : Math.min(roomOpacity, 0.3));
 
+  // Check if this is a polygon room
+  const isPolygonRoom = room.room_type === 'polygon' || room.vertices || room.dimensions_json?.vertices;
+  const polygonVertices = room.vertices || room.dimensions_json?.vertices;
+
   // Handle right-click on room
   const handleRoomContextMenu = (e: any) => {
     e.stopPropagation();
@@ -1217,6 +1417,74 @@ function RoomMesh({ room, isCurrentFloor = true }: { room: any; isCurrentFloor?:
     }));
   };
 
+  // Render polygon room
+  if (isPolygonRoom && polygonVertices && polygonVertices.length >= 3) {
+    return (
+      <group position={[posX, 0, posZ]} onClick={handleClick} onContextMenu={handleRoomContextMenu}>
+        {showFloor && (
+          <PolygonFloor
+            vertices={polygonVertices}
+            material={room.floor_material || 'hardwood'}
+            customColor={room.floor_color}
+            wireframe={isWireframe}
+            opacity={effectiveOpacity}
+            isXray={isXray}
+          />
+        )}
+        {showCeiling && (
+          <PolygonCeiling
+            vertices={polygonVertices}
+            height={height}
+            color={room.ceiling_color || '#f3f4f6'}
+            wireframe={isWireframe}
+            opacity={effectiveOpacity}
+            isXray={isXray}
+          />
+        )}
+        {showWalls && walls.length > 0 ? (
+          // Render walls from database
+          walls.map((wall) => (
+            <WallMesh
+              key={wall.id}
+              wall={wall}
+              roomPosX={posX}
+              roomPosZ={posZ}
+              isCurrentFloor={isCurrentFloor}
+              opacity={effectiveOpacity}
+              wireframe={isWireframe}
+              xray={isXray}
+            />
+          ))
+        ) : showWalls ? (
+          <PolygonWalls
+            vertices={polygonVertices}
+            height={height}
+            wireframe={isWireframe}
+            opacity={effectiveOpacity}
+            isXray={isXray}
+          />
+        ) : null}
+
+        {/* Selection indicator */}
+        {isSelected && (
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+            <shapeGeometry args={[(() => {
+              const shape = new THREE.Shape();
+              shape.moveTo(polygonVertices[0].x, polygonVertices[0].y);
+              for (let i = 1; i < polygonVertices.length; i++) {
+                shape.lineTo(polygonVertices[i].x, polygonVertices[i].y);
+              }
+              shape.closePath();
+              return shape;
+            })()]} />
+            <meshBasicMaterial color="#3b82f6" transparent opacity={0.2} side={THREE.DoubleSide} />
+          </mesh>
+        )}
+      </group>
+    );
+  }
+
+  // Render rectangular room (default)
   return (
     <group position={[posX, 0, posZ]} onClick={handleClick} onContextMenu={handleRoomContextMenu}>
       {/* Floor with procedural texture */}
